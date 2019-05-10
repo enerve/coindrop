@@ -200,6 +200,20 @@ class Plotter:
             logging.getLogger("matplotlib.axes").setLevel(logging.INFO)
             ani.save(prefix() + pref + '.mp4', writer=writer)
         plt.close()
+        
+def save_hist_animation(dists, bins, range, ymax=None, pref=""):
+    fig = plt.figure()
+    ax1 = fig.add_subplot(1,1,1)
+    plt.rcParams['animation.ffmpeg_path'] = arg_bin_dir + 'ffmpeg'
+    Writer = animation.writers['ffmpeg']
+    writer = Writer(fps=2, metadata=dict(artist='enerve'), bitrate=1800)
+    def animate(x):
+        ax1.clear()
+        if ymax:
+            ax1.set_ylim([0, ymax])
+        ax1.hist(x, 100, range)
+    ani = animation.FuncAnimation(fig, animate, dists, interval=10)
+    ani.save(prefix() + pref + '.mp4', writer=writer)
 
 def checkpoint_reached(ep, checkpoint_divisor):
     return checkpoint_divisor > 0 and \

@@ -5,8 +5,10 @@ Created on Apr 28, 2019
 '''
 
 import mechanics
+import util
 
 import logging
+import numpy as np
 import random
 
 from .player import Player
@@ -60,8 +62,6 @@ class LookaheadAgent(Player):
         # choose randomly from best options
         idx = random.randint(0, len(options)-1)
         A = options[idx]
-        
-        #self.R *= -1 #TODO: (temp for testing)
         
         self.steps_history.append((self.R, self.S, A))
 
@@ -132,4 +132,22 @@ class LookaheadAgent(Player):
 
     def get_test_episodes_history(self):
         return self.test_episodes_history
-    
+
+    def decimate_history(self):
+        self.episodes_history = [self.episodes_history[i] for i in
+                                 range(len(self.episodes_history)) 
+                                 if i % 10 > 0]
+        self.test_episodes_history = [self.test_episodes_history[i] for i in 
+                                      range(len(self.test_episodes_history)) 
+                                      if i % 10 > 0]
+    def store_episode_history(self, fname):
+        EH = np.asarray(self.episodes_history)
+        util.dump(EH, fname, "EH")
+        VEH = np.asarray(self.test_episodes_history)
+        util.dump(VEH, fname, "VEH")
+ 
+    def load_episode_history(self, fname, subdir):
+        self.episodes_history = [[(s[0], s[1], s[2]) for s in sh]
+                                 for sh in util.load(fname, subdir, suffix="EH")]
+        self.test_episodes_history = [[(s[0], s[1], s[2]) for s in sh] 
+                                      for sh in util.load(fname, subdir, suffix="VEH")]

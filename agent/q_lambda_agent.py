@@ -6,7 +6,9 @@ Created on Apr 29, 2019
 
 import logging
 import util
+
 import numpy as np
+import random
 
 from .player import Player
 
@@ -44,6 +46,11 @@ class QLambdaAgent(Player):
         self.sum_total_R = 0
         self.sum_played = 0
         self.stats_delta = []
+        
+        # for histograms
+        self.all_currs = []
+        self.all_targets = []
+        self.all_deltas = []
 
     def prefix(self):
         es_prefix = self.exploration_strategy.prefix()
@@ -137,6 +144,26 @@ class QLambdaAgent(Player):
     def get_test_episodes_history(self):
         return self.test_episodes_history
 
+    def decimate_history(self):
+        self.episodes_history = [self.episodes_history[i] for i in
+                                 range(len(self.episodes_history)) 
+                                 if i % 10 > 0]
+        self.test_episodes_history = [self.test_episodes_history[i] for i in 
+                                      range(len(self.test_episodes_history)) 
+                                      if i % 10 > 0]
+
+    def store_episode_history(self, fname):
+        EH = np.asarray(self.episodes_history)
+        util.dump(EH, fname, "EH")
+        VEH = np.asarray(self.test_episodes_history)
+        util.dump(VEH, fname, "VEH")
+ 
+    def load_episode_history(self, fname, subdir):
+        self.episodes_history = [[(s[0], s[1], s[2]) for s in sh]
+                                 for sh in util.load(fname, subdir, suffix="EH")]
+        self.test_episodes_history = [[(s[0], s[1], s[2]) for s in sh] 
+                                      for sh in util.load(fname, subdir, suffix="VEH")]
+
 
     # ----------- Analyze given history to extract training data -----------
 
@@ -155,6 +182,8 @@ class QLambdaAgent(Player):
 
         self.num_wins = 0
         self.num_loss = 0
+        
+        self.logger.debug(" Process history of %d episodes", len(episodes_history))
 
         for i, steps_history in enumerate(episodes_history):
             self._process_steps(steps_history, use_for_validation)
@@ -172,10 +201,9 @@ class QLambdaAgent(Player):
             npd = np.array(self.deltas)
             self.stats_delta.append(np.mean(np.abs(npd)))
             #self.logger.debug('  sumdelta: %0.4f', self.sum_delta)
-            self.logger.debug('  delta   : %0.2f <%0.2f>', np.mean(npd), np.var(npd))
+            self.logger.debug('  delta   : %0.2f <%0.2f>', np.mean(np.abs(npd)), np.var(npd))
             #self.logger.debug('  wins/losses (total): %d/%d (%d)', self.num_wins,
             #                  self.num_loss, len(episodes_history))
-
 
     def _process_steps(self, steps_history, use_for_validation):
         ''' Observes and learns from the given episode '''
@@ -213,9 +241,9 @@ class QLambdaAgent(Player):
                     self._record_eligibles(num_E, use_for_validation)
                     num_E = 0
 
-                self.deltas.append(delta)
-                self.targets.append(target)
                 self.currs.append(curr_value)
+                self.targets.append(target)
+                self.deltas.append(delta)
                 if R_ > 0: self.num_wins += 1 
                 if R_ < 0: self.num_loss += 1
                 
@@ -242,6 +270,22 @@ class QLambdaAgent(Player):
         npd = np.array(self.deltas)
         util.hist(npd, 100, (-2, 2), "delta", "deltahist")
 
+    def collect_last_hists(self):
+        self.all_currs.append(self.currs)
+        self.all_targets.append(self.targets)
+        self.all_deltas.append(self.deltas)
+
+    def store_collected_hists(self):
+        maxlen = len(self.all_currs[0]) 
+        util.save_hist_animation(self.all_currs, 100, (-1.2, 1.2), maxlen, "currhist")
+        util.save_hist_animation(self.all_targets, 100, (-1.2, 1.2), maxlen, "targethist")
+        util.save_hist_animation(self.all_deltas, 100, (-1.2, 1.2), maxlen, "deltahist")
+        AC = np.asarray(self.all_currs)
+        AT = np.asarray(self.all_targets)
+        AD = np.asarray(self.all_deltas)
+        util.dump(AC, "currhist")
+        util.dump(AT, "targethist")
+        util.dump(AD, "deltahist")
 
     # ---------------- Train FA ---------------
 

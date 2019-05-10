@@ -105,21 +105,34 @@ def main():
         logger.debug("Avg #moves: %0.2f" % (agent_sum_moves/test_runs))
         agent_fa.report_stats()
     
-    elif False: # Load trained model
-        dir = ""
-        agent_fa.load_model(dir)
     else: # Run episodes
+        if False:
+            # Load episodes history and model
+            dir = "416452_Coindrop_DR_q_lambda_epat_l0.90neural_a0.0005_r0_b512_i500_F_NNconvnetlook3__"
+            agent.load_episode_history("agent", dir)
+            opponent.load_episode_history("opponent", dir)
+            agent_fa.load_model("modelv2", dir)
+        elif False:
+            # Load training data and model
+            dir = "330041_Coindrop_DR_q_lambda_epat_l0.95neural_a0.0005_r0_b512_i1000_F_NNconvnetlook3__"
+            agent_fa.load_training_data("coindrop", dir)
+            agent_fa.load_model("coindrop", dir)
+        else:
+            agent_fa.initialize_default_net()
     
-        trainer.train(100, 2, 1)
+        trainer.train(500, 20, 1)
         #trainer.save_to_file()
     
-        agent_fa.store_training_data("coindrop")
+        agent.store_episode_history("agent")
+        opponent.store_episode_history("opponent")
+        
+        agent_fa.store_training_data("data")
     
     
         trainer.report_stats()
 
     
-    agent_fa.save_model("coindrop")
+    agent_fa.save_model("modelv2")
     
     
 

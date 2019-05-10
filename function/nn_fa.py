@@ -48,7 +48,16 @@ class NN_FA(ValueFunction):
 
         # Collectors of incoming data
         self.reset_dataset()
-        
+
+        # Stats / debugging
+        self.stat_error_cost = []
+        self.stat_reg_cost = []
+        self.stat_val_error_cost = []
+                
+        self.sids = self._sample_ids(3000, self.batch_size)
+        self.last_loss = torch.zeros(self.batch_size, 7).cuda()
+                
+    def initialize_default_net(self):
         #         self.net = Net([num_inputs, 500, 500, 500, self.num_outputs])
 
         net = nn.Sequential(
@@ -64,15 +73,6 @@ class NN_FA(ValueFunction):
 
         self.init_net(net)
 
-        # Stats / debugging
-        self.stat_error_cost = []
-        self.stat_reg_cost = []
-        self.stat_val_error_cost = []
-        
-        self.pos = 0
-        self.neg = 0
-        self.ireplay = 0
-        
     def init_net(self, net):        
         net.cuda(self.device)
 
@@ -86,7 +86,9 @@ class NN_FA(ValueFunction):
             amsgrad=False)
 
         self.net = net
-
+        
+        self.logger.debug("Net:\n%s", self.net)
+        
     def prefix(self):
         return 'neural_a%s_r%s_b%d_i%d_F%s_NN%s' % (self.alpha, 
                                      self.regularization_param,
@@ -124,12 +126,19 @@ class NN_FA(ValueFunction):
         self.val_steps_history_state = []
         self.val_steps_history_action = []
         self.val_steps_history_target = []
-        self.dont_collect = False
+        self.ireplay = None
+        self.pos = self.neg = 0
 
-    def record(self, state, action, target):
+    def replay_dataset(self):
+        ''' Prepare to replay instead of record new data. DEBUGGING ONLY. '''
+        self.ireplay = 0
+        self.pos = self.neg = 0
+
+    def record(self, state, action, target, currval):
         ''' Record incoming data for later training '''
 
-        if self.dont_collect:
+        if self.ireplay is not None:
+            # Replaying the same datapoints but recording new targets
             # Confirm it's an exact repeat
             old_action = self.steps_history_action[self.ireplay]
             if action != old_action:
@@ -169,13 +178,13 @@ class NN_FA(ValueFunction):
         util.dump(vSHT, fname, "vt")
  
     def load_training_data(self, fname, subdir):
-        self.steps_history_state = util.load(fname, subdir, suffix="S")
-        self.steps_history_action = util.load(fname, subdir, suffix="A")#.tolist()
-        self.steps_history_target = util.load(fname, subdir, suffix="t")
+        self.steps_history_state = [s for s in util.load(fname, subdir, suffix="S")]
+        self.steps_history_action = [a for a in util.load(fname, subdir, suffix="A")]
+        self.steps_history_target = [t for t in util.load(fname, subdir, suffix="t")]
 
-        self.val_steps_history_state = util.load(fname, subdir, suffix="vS")
-        self.val_steps_history_action = util.load(fname, subdir, suffix="vA")#.tolist()
-        self.val_steps_history_target = util.load(fname, subdir, suffix="vt")
+        self.val_steps_history_state = [s for s in util.load(fname, subdir, suffix="vS")]
+        self.val_steps_history_action = [a for a in util.load(fname, subdir, suffix="vA")]
+        self.val_steps_history_target = [t for t in util.load(fname, subdir, suffix="vt")]
         #util.hist(self.steps_history_action, bins=7)
         
 
@@ -187,15 +196,7 @@ class NN_FA(ValueFunction):
 
         self.train()
         self.test()
-        
 
-        if True:
-            self.reset_dataset()
-        else:
-            # For debugging only
-            self.dont_collect = True
-            self.ireplay = 0
-        
         self.pos, self.neg = 0, 0
 
     def _prepare_data(self, steps_history_state, steps_history_action,
@@ -277,7 +278,21 @@ class NN_FA(ValueFunction):
         
         self.logger.debug("  training with %d items...", len(steps_history_x))
 
-        #W = self.W
+#         with torch.no_grad():
+#             X = SHX[self.sids]   # b x di
+#             Y = SHT[self.sids]   # b
+#             M = SHM[self.sids]   # b x do
+#             Y = torch.unsqueeze(Y, 1)   # b x 1
+#             
+#             # forward
+#             outputs = self.net(X)       # b x do
+#             # loss
+#             Y = Y * M  # b x do
+#             loss = self.criterion(outputs, Y)  # b x do
+#             with torch.no_grad():
+#                 # Zero-out the computed losses for the other actions/outputs
+#                 loss *= M   # b x do
+
         N = len(steps_history_t)
         
         # for stats
@@ -325,6 +340,15 @@ class NN_FA(ValueFunction):
             with torch.no_grad():
                 suml = torch.sum(loss, 0)
                 countl = torch.sum(loss > 0, 0).float()
+                
+#                 ltz = (suml < 0).byte()
+#                 if ltz.any():
+#                     self.logger.debug("loss < 0")
+#                 
+#                 if i==0:
+#                     self.logger.debug("Initial loss:\n  %s", suml / (countl + 0.0001))
+#                 if i+1==self.max_iterations:
+#                     self.logger.debug("   Last loss:\n  %s", suml / (countl + 0.0001))
 
                 sum_error_cost.add_(suml)  # do
                 count_actions.add_(countl)  # do
@@ -370,12 +394,12 @@ class NN_FA(ValueFunction):
         pass
     
     def report_stats(self, pref=""):
-        num = len(self.stat_error_cost)
+        num = len(self.stat_error_cost[1:])
 
-        n_cost = np.asarray(self.stat_error_cost).T
+        n_cost = np.asarray(self.stat_error_cost[1:]).T
         labels = list(range(n_cost.shape[1]))        
 
-        n_v_cost = np.asarray(self.stat_val_error_cost).T
+        n_v_cost = np.asarray(self.stat_val_error_cost[1:]).T
         labels.extend(["val%d" % i for i in range(n_v_cost.shape[1])])
         cost = np.concatenate([n_cost, n_v_cost], axis=0)
         avgcost = np.stack([n_cost.mean(axis=0), n_v_cost.mean(axis=0)], axis=0)
@@ -396,12 +420,17 @@ class NN_FA(ValueFunction):
 
     
     def live_stats(self):
-        n_cost = np.asarray(self.stat_error_cost).T
-        n_v_cost = np.asarray(self.stat_val_error_cost).T
+        num = len(self.stat_error_cost[1:])
+        
+        if num < 1:
+            return
+
+        n_cost = np.asarray(self.stat_error_cost[1:]).T
+        n_v_cost = np.asarray(self.stat_val_error_cost[1:]).T
         avgcost =  np.stack([n_cost.mean(axis=0), n_v_cost.mean(axis=0)], axis=0)
 
         util.plot(avgcost,
-                  range(len(self.stat_error_cost)),
+                  range(num),
                   labels = ["training cost", "validation cost"],
                   title = "NN training/validation cost",
                   live=True)
@@ -409,7 +438,7 @@ class NN_FA(ValueFunction):
     def save_model(self, pref=""):
         util.torch_save(self.net, pref)
 
-    def load_model(self, load_subdir, pref=""):
-        net = util.torch_load(pref, load_subdir)
+    def load_model(self, fname, load_subdir):
+        net = util.torch_load(fname, load_subdir)
         net.eval()
         self.init_net(net)

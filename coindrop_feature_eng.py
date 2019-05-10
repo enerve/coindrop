@@ -36,16 +36,18 @@ class CoindropFeatureEng(FeatureEng):
 #         return self.num_actions
         
     def prefix(self):
-        return ''
+        return 'FEv2_'
 
     def x_adjust(self, B):
         ''' Takes the input params and converts it to an input feature array
         '''
 
-        b = torch.from_numpy(B).to(self.device).float()#.flatten()
-        x1 = (b > 0.5)
-        x2 = (b < -0.5)
-        return torch.stack([x1.float(), x2.float()], dim=0)
+        b = torch.from_numpy(B).to(self.device)
+        # Create 2 layers, one for each player, with -1 for empty grids
+        empty = (b == 0).float() * -1
+        x1 = (b > 0.5).float() + empty
+        x2 = (b < -0.5).float() + empty
+        return torch.stack([x1, x2], dim=0)
 
     def valid_actions_mask(self, B):
         valid_actions_mask = (B[6-1] == 0) * 1

@@ -77,19 +77,36 @@ class EpochTrainer:
                         
                     ep += 1
                 
-                #TODO:fa.reset dataset() here maybe?
-                #num_episodes_per_epoch = 0 #for debugging
-                
                 self.logger.debug("Learning from agent history")
                 self.agent.process(self.agent.get_episodes_history())
-                self.agent.plot_last_hists()
+                #self.agent.plot_last_hists()
                 self.agent.process_test(self.agent.get_test_episodes_history())
-                
+
                 self.logger.debug("Learning from opponent history")
                 self.agent.process(self.opponent.get_episodes_history())
+                #self.agent.plot_last_hists()
+                self.agent.collect_last_hists()
                 self.agent.process_test(self.opponent.get_test_episodes_history())
 
                 self.agent.learn()
+                
+                debug_first_epoch_data_only = False
+                if debug_first_epoch_data_only:
+                    num_episodes_per_epoch = 0
+                    self.agent.fa.replay_dataset()
+                else:
+                    self.agent.fa.reset_dataset()
+                
+                # Sacrifice some data for the sake of GPU memory
+                if len(self.agent.get_episodes_history()) >= 10000:
+                    self.logger.debug("Before: %d, %d",
+                                      len(self.agent.get_episodes_history()),
+                                      len(self.opponent.get_episodes_history()))
+                    self.agent.decimate_history()
+                    self.opponent.decimate_history()
+                    self.logger.debug("After: %d, %d", 
+                                      len(self.agent.get_episodes_history()),
+                                      len(self.opponent.get_episodes_history()))
                 
                 agent_sum_totalR = 0
                 num_wins = 0
@@ -116,6 +133,7 @@ class EpochTrainer:
 
             #self.agent.restart_exploration(1)
 
+        self.agent.store_collected_hists()
 
         self.logger.debug("Completed training in %0.1f minutes", (time.clock() - start_time)/60)
     
