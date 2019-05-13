@@ -134,7 +134,7 @@ class NN_FA(ValueFunction):
         self.ireplay = 0
         self.pos = self.neg = 0
 
-    def record(self, state, action, target, currval):
+    def record(self, state, action, target):
         ''' Record incoming data for later training '''
 
         if self.ireplay is not None:

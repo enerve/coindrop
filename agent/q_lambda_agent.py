@@ -60,7 +60,7 @@ class QLambdaAgent(Player):
     # ---------------- Single game ---------------
 
     def init_game(self, initial_state, initial_heights):
-        self.S = initial_state
+        self.S = np.copy(initial_state)
         self.R = 0
         self.total_R = 0
         self.steps_history = []
@@ -73,7 +73,7 @@ class QLambdaAgent(Player):
         '''
         self.R += reward
         self.total_R += reward
-        self.S = new_state
+        self.S = np.copy(new_state)
         if moves: self.moves = moves
 
     def next_move(self):
