@@ -8,6 +8,8 @@ import logging
 
 from epoch_trainer import EpochTrainer
 from agent import *
+# from function import BoundActionModel
+# from function import NNBoundFA
 from function import *
 from coindrop_feature_eng import CoindropFeatureEng
 import trainer_helper as th
@@ -48,14 +50,20 @@ def main():
     torch.cuda.manual_seed(seed)
     
     coindrop_fe = CoindropFeatureEng(config)
+    bound_action_model = BoundActionModel(config)
     
-    #agent_fe = RectangleFeatureEng(config)
-    agent_fa = NN_FA(
+#     agent_fa = NN_FA(
+#                     0.0005, # alpha ... #4e-5 old alpha without batching
+#                     0, # regularization constant
+#                     512, # batch_size
+#                     500, # max_iterations
+#                     coindrop_fe)
+    agent_fa = NN_Bound_FA(
                     0.0005, # alpha ... #4e-5 old alpha without batching
                     0, # regularization constant
                     512, # batch_size
-                    1000, # max_iterations
-                    coindrop_fe)
+                    500, # max_iterations
+                    bound_action_model)
 
     data_collector = FADataCollector(agent_fa)
 
