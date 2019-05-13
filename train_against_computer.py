@@ -57,6 +57,7 @@ def main():
                     1000, # max_iterations
                     coindrop_fe)
 
+    data_collector = FADataCollector(agent_fa)
 
     es = ESPatches(config,
                   explorate=50000,
@@ -66,7 +67,7 @@ def main():
                     es = es,
                     lam = 0.95,
                     fa=agent_fa,
-                    mimic_fa=None)
+                    data_collector = data_collector)
     
     random_agent = RandomAgent()
     lookahead_agent1 = LookaheadAgent(1)
@@ -79,12 +80,12 @@ def main():
     
     trainer = EpochTrainer(agent, opponent, agent.prefix() + opponent.prefix())
     
-    if False: # Train from dataset file
+    if False: # If train from dataset file
         #trainer.load_from_file("")
         # LA2 dir = "810178_Coindrop_DR_q_lambda_epat_l0.95neural_a0.0003_r1e-05_b512_i100000_F_NNconvnet__"
         dir = "932109_Coindrop_DR_q_lambda_epat_l0.95neural_a0.0003_r1e-05_b512_i30000_F_NNconvnet__"
-        agent_fa.load_training_data("coindrop_mrr_opp", dir)
-        agent_fa.train()
+        data_collector.load_dataset("coindrop_mrr_opp", dir)
+        agent_fa.train(data_collector)
         agent_total_R = 0
         agent_wins = 0
         agent_losses = 0
@@ -105,17 +106,17 @@ def main():
         logger.debug("Avg #moves: %0.2f" % (agent_sum_moves/test_runs))
         agent_fa.report_stats()
     
-    else: # Run episodes
+    elif True: # If Run episodes
         if False:
             # Load episodes history and model
-            dir = "416452_Coindrop_DR_q_lambda_epat_l0.90neural_a0.0005_r0_b512_i500_F_NNconvnetlook3__"
+            dir = "419230_Coindrop_DR_q_lambda_epat_l0.90neural_a0.0005_r0_b512_i500_F_NNconvnetlook3__"
             agent.load_episode_history("agent", dir)
             opponent.load_episode_history("opponent", dir)
             agent_fa.load_model("modelv2", dir)
         elif False:
             # Load training data and model
             dir = "330041_Coindrop_DR_q_lambda_epat_l0.95neural_a0.0005_r0_b512_i1000_F_NNconvnetlook3__"
-            agent_fa.load_training_data("coindrop", dir)
+            data_collector.load_dataset("coindrop", dir)
             agent_fa.load_model("coindrop", dir)
         else:
             agent_fa.initialize_default_net()

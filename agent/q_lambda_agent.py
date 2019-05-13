@@ -22,9 +22,11 @@ class QLambdaAgent(Player):
                  lam,
                  gamma,
                  exploration_strategy,
-                 fa):
+                 fa,
+                 data_collector):
         
         self.fa = fa
+        self.data_collector = data_collector
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
@@ -256,9 +258,9 @@ class QLambdaAgent(Player):
             S, A = self.eligible_states[i]
             target = self.eligible_state_target[i]
             if use_for_validation:
-                self.fa.record_validation(S, A, target)
+                self.data_collector.record_validation(S, A, target)
             else:
-                self.fa.record(S, A, target)
+                self.data_collector.record(S, A, target)
 
     def plot_last_hists(self):
         npc = np.array(self.currs)
@@ -292,7 +294,7 @@ class QLambdaAgent(Player):
     def learn(self):
         ''' Process the training data collected since last update.
         '''
-        self.fa.update()
+        self.fa.update(self.data_collector)
 
     def save_model(self, pref=""):
         self.fa.save_model(pref)

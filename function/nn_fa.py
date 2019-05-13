@@ -46,9 +46,6 @@ class NN_FA(ValueFunction):
         num_inputs = feature_eng.num_inputs
         self.num_outputs = feature_eng.num_actions
 
-        # Collectors of incoming data
-        self.reset_dataset()
-
         # Stats / debugging
         self.stat_error_cost = []
         self.stat_reg_cost = []
@@ -118,86 +115,15 @@ class NN_FA(ValueFunction):
     def random_action(self, state):
         return self.feature_eng.random_action(state)
 
-    def reset_dataset(self):
-        # Forget old steps history
-        self.steps_history_state = []
-        self.steps_history_action = []
-        self.steps_history_target = []
-        self.val_steps_history_state = []
-        self.val_steps_history_action = []
-        self.val_steps_history_target = []
-        self.ireplay = None
-        self.pos = self.neg = 0
 
-    def replay_dataset(self):
-        ''' Prepare to replay instead of record new data. DEBUGGING ONLY. '''
-        self.ireplay = 0
-        self.pos = self.neg = 0
-
-    def record(self, state, action, target):
-        ''' Record incoming data for later training '''
-
-        if self.ireplay is not None:
-            # Replaying the same datapoints but recording new targets
-            # Confirm it's an exact repeat
-            old_action = self.steps_history_action[self.ireplay]
-            if action != old_action:
-                self.logger("Got %d vs %d", action, old_action)
-                old_state = self.steps_history_state[self.ireplay]
-                self.logger("    %s vs %s", state, old_state)
-            self.steps_history_target[self.ireplay] = target
-            self.ireplay += 1
-        else:
-            self.steps_history_state.append(state)
-            self.steps_history_action.append(action)
-            self.steps_history_target.append(target)
-
-        if target > 0:
-            self.pos += 1
-        else:
-            self.neg += 1
-            
-
-    def record_validation(self, state, action, target):
-        self.val_steps_history_state.append(state)
-        self.val_steps_history_action.append(action)
-        self.val_steps_history_target.append(target)
-        
-    def store_training_data(self, fname):
-        SHS = np.asarray(self.steps_history_state)
-        SHA = np.asarray(self.steps_history_action)
-        SHT = np.asarray(self.steps_history_target)
-        util.dump(SHS, fname, "S")
-        util.dump(SHA, fname, "A")
-        util.dump(SHT, fname, "t")
-        vSHS = np.asarray(self.val_steps_history_state)
-        vSHA = np.asarray(self.val_steps_history_action)
-        vSHT = np.asarray(self.val_steps_history_target)
-        util.dump(vSHS, fname, "vS")
-        util.dump(vSHA, fname, "vA")
-        util.dump(vSHT, fname, "vt")
- 
-    def load_training_data(self, fname, subdir):
-        self.steps_history_state = [s for s in util.load(fname, subdir, suffix="S")]
-        self.steps_history_action = [a for a in util.load(fname, subdir, suffix="A")]
-        self.steps_history_target = [t for t in util.load(fname, subdir, suffix="t")]
-
-        self.val_steps_history_state = [s for s in util.load(fname, subdir, suffix="vS")]
-        self.val_steps_history_action = [a for a in util.load(fname, subdir, suffix="vA")]
-        self.val_steps_history_target = [t for t in util.load(fname, subdir, suffix="vt")]
-        #util.hist(self.steps_history_action, bins=7)
-        
-
-    def update(self):
+    def update(self, data_collector):
         ''' Updates the value function model based on data collected since
             the last update '''
 
-        self.logger.debug("#pos: %d \t #neg: %d", self.pos, self.neg)
+        data_collector.before_update()
 
-        self.train()
+        self.train(data_collector)
         self.test()
-
-        self.pos, self.neg = 0, 0
 
     def _prepare_data(self, steps_history_state, steps_history_action,
                       steps_history_target):
@@ -208,6 +134,7 @@ class NN_FA(ValueFunction):
 
         #Sdict = {}
         #count_conflict = 0
+        self.logger.debug("  Preparing for %d items", len(steps_history_state))
         
         for i, (S, a, t) in enumerate(zip(
                         steps_history_state,
@@ -255,19 +182,13 @@ class NN_FA(ValueFunction):
         ids = (l * ids.uniform_()).long()
         return ids
 
-    def train(self):
-        self.logger.debug("Preparing training data for %d items",
-                          len(self.steps_history_state))
+    def train(self, data_collector):
+        self.logger.debug("Preparing training data--")
         steps_history_x, steps_history_t, steps_history_m = \
-            self._prepare_data(self.steps_history_state,
-                               self.steps_history_action,
-                               self.steps_history_target)
-        self.logger.debug("Preparing validation data for %d items",
-                          len(self.val_steps_history_state))
+            self._prepare_data(*data_collector.get_training_data())
+        self.logger.debug("Preparing validation data--")
         val_steps_history_x, val_steps_history_t, val_steps_history_m = \
-            self._prepare_data(self.val_steps_history_state,
-                               self.val_steps_history_action,
-                               self.val_steps_history_target)
+            self._prepare_data(*data_collector.get_validation_data())
         
         SHX = torch.stack(steps_history_x).to(self.device)
         SHT = torch.tensor(steps_history_t).to(self.device)
@@ -276,7 +197,7 @@ class NN_FA(ValueFunction):
         VSHT = torch.tensor(val_steps_history_t).to(self.device)
         VSHM = torch.stack(val_steps_history_m).to(self.device)
         
-        self.logger.debug("  training with %d items...", len(steps_history_x))
+        self.logger.debug("Training with %d items...", len(steps_history_x))
 
 #         with torch.no_grad():
 #             X = SHX[self.sids]   # b x di

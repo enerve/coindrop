@@ -93,9 +93,9 @@ class EpochTrainer:
                 debug_first_epoch_data_only = False
                 if debug_first_epoch_data_only:
                     num_episodes_per_epoch = 0
-                    self.agent.fa.replay_dataset()
+                    self.agent.data_collector.replay_dataset()
                 else:
-                    self.agent.fa.reset_dataset()
+                    self.agent.data_collector.reset_dataset()
                 
                 # Sacrifice some data for the sake of GPU memory
                 if len(self.agent.get_episodes_history()) >= 10000:

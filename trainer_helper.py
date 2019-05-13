@@ -27,15 +27,16 @@ CONFIG = namedtuple("Config",
 
 GAMMA = 0.9
 
-def create_agent(config, alg, es, lam, fa, mimic_fa):
-    return create_agent_i(config, ALG[alg], es, lam, fa, mimic_fa)
+def create_agent(config, alg, es, lam, fa, data_collector):
+    return create_agent_i(config, ALG[alg], es, lam, fa, data_collector)
 
-def create_agent_i(config, i_alg, es, lam, fa, mimic_fa):
+def create_agent_i(config, i_alg, es, lam, fa, data_collector):
     if i_alg == 0:    
         driver = QAgent(config,
                         1, # gamma
                         es, # explorate
-                        fa)
+                        fa,
+                        data_collector)
 #     elif i_alg == 1:    
 #         driver = SarsaFADriver(config,
 #                         1, # gamma
@@ -47,7 +48,8 @@ def create_agent_i(config, i_alg, es, lam, fa, mimic_fa):
                         lam, #lambda
                         1, # gamma
                         es, # explorate
-                        fa)
+                        fa,
+                        data_collector)
 #     elif i_alg == 3:
 #         driver = SarsaLambdaFADriver(config,
 #                         lam, #lambda
