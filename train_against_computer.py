@@ -132,6 +132,16 @@ def main():
         validation_data_collector.store_last_dataset("final_v")
     
         trainer.report_stats()
+    else: # load model, export to onnx
+        
+#         import onnx
+#         model = onnx.load("/home/erwin/MLData/RL/output/655236_Coindrop_DR_q_lambda_epat_l0.95neural_a0.0005_r0_b512_i1000_FFEv2__NNconvnetlook3__/coindropV2.onnx")
+#         onnx.checker.check_model(model)
+#         print(onnx.helper.printable_graph(model.graph))
+        
+        dir = "419230_Coindrop_DR_q_lambda_epat_l0.90neural_a0.0005_r0_b512_i500_F_NNconvnetlook3__"
+        agent_fa.load_model("modelv2", dir)
+        agent_fa.export_to_onnx("coindropV2.onnx")
 
     
     agent_fa.save_model("v4")
