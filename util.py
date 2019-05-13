@@ -9,6 +9,7 @@ import numpy as np
 import os
 import time, datetime
 import torch
+import torch.onnx
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -268,3 +269,11 @@ def torch_load(fname, subdir=None, suffix=None):
         + ("_%s"%suffix if suffix else '') #\
         #+ '.npy'
     return torch.load(fname)
+
+def torch_export(M, dummy_input, fname, suffix=None):
+    os.makedirs(subdir(), exist_ok=True)
+    fname = subdir() \
+        + fname \
+        + ("_%s"%suffix if suffix else '') #\
+        #+ '.npy'
+    torch.onnx.export(M, dummy_input, fname)
