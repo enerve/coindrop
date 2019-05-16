@@ -274,6 +274,6 @@ def torch_export(M, dummy_input, fname, suffix=None):
     os.makedirs(subdir(), exist_ok=True)
     fname = subdir() \
         + fname \
-        + ("_%s"%suffix if suffix else '') #\
-        #+ '.npy'
+        + ("_%s"%suffix if suffix else '') \
+        + '.onnx'
     torch.onnx.export(M, dummy_input, fname)

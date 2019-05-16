@@ -352,3 +352,11 @@ class NN_Bound_FA(ValueFunction):
         net = util.torch_load(fname, load_subdir)
         net.eval()
         self.init_net(net)
+
+    def export_to_onnx(self, fname):
+        dummy_state = np.random.randint(-1, 2, (6, 7))
+        with torch.no_grad():
+            dummy_X = self.model.feature(dummy_state).unsqueeze(0)
+            util.torch_export(self.net, dummy_X, fname)
+        self.logger.debug("Exported to ONNX")
+        

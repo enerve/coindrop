@@ -1,4 +1,10 @@
-
+/*
+ * Created on 16 May 2019
+ * 
+ * @author: enerve
+ * 
+ * Manages the Connect-4 board UI 
+ */
 
 function draw_slot(cx, cy, id) {
 	var svg = document.getElementsByTagName('svg')[0]; //Get svg element
@@ -7,7 +13,7 @@ function draw_slot(cx, cy, id) {
 	slot.setAttribute("cy", cy);
 	slot.setAttribute("r", 40);
 	slot.style.fill = "#FFF"
-	slot.style.stroke = "#000";
+	slot.style.stroke = "#00F";
 	slot.style.strokeWidth = "3px";
 	slot.setAttribute("id", id);
 	slot.setAttribute("onclick", "clicked(\"" + id +"\")");
@@ -31,7 +37,7 @@ function draw_grid() {
 	rect.setAttribute("width", rect_width);
 	rect.setAttribute("height", rect_height);
 	rect.style.fill = "#00F"
-		rect.style.stroke = "#000";
+	rect.style.stroke = "#000";
 	rect.style.strokeWidth = "3px";
 	svg.appendChild(rect);
 
@@ -45,42 +51,16 @@ function draw_grid() {
 		for (j=0; j<6; j++) {
 			draw_slot(rect_x + border + i * swidth + swidth/2,
 					rect_y + border + j * sheight + sheight/2,
-					"slot" + i + "" + j)
+					"slot" + i + "" + (5-j))
 		}
 	}
 }
 
-function draw_board(B) {
-	draw_grid()
+function placeCoin(x, y, turn) {
+	placeCoinID('slot'+x+y, turn)
 }
 
-Game = function() {
-	this.B = new Array(6);
-	for (var i = 0; i < this.B.length; i++) {
-	  this.B[i] = new Array(7).fill(0);
-	}
-
-	this.turn = 1
-};
-	
-Game.prototype.clicked = function(x, y) {
-	if (this.B[y][x]==0) {
-		// okay
-		
-		this.B[y][x] = this.turn
-		placeCoin('slot'+x+y, this.turn)
-		
-		this.turn = -this.turn;
-		
-		return true;
-	} else {
-		// can't
-		alert('not ok - ' + this.B[y][x])
-		return false;
-	}
-};
-
-function placeCoin(id, player) {
+function placeCoinID(id, player) {
 	var slot = document.getElementById(id); //Get svg element
 	
 	if (player == 1) {
@@ -89,18 +69,18 @@ function placeCoin(id, player) {
 		color="#ED0"
 	}
 		
-	slot.style.fill=color
+	slot.style.fill = color
+	slot.style.stroke = "#000";
 	
 }
-
-game = new Game()
 
 function clicked(id) {
 	x = parseInt(id[4])
 	y = parseInt(id[5])
 	
-	if (game.clicked(x, y)) {
-		//placeCoin(id, 1)
+	if (game.isValidMove(x, y)) {
+		placeCoin(x, y, game.current_player())
+		game.move(x, y)
 	}
 	
 }

@@ -41,8 +41,9 @@ def _count(B, coin, x, y, a, b):
     a, b = -a, -b
     x_, y_ = x+a, y+b
     if not 0 <= x_ < 7 or not 0 <= y_ < 6:
-        return count 
-    for i in range(4-count):
+        return count
+    rem = 4 - count 
+    for i in range(rem):
         if B[y_, x_] != coin:
             break
         count += 1
