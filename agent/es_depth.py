@@ -31,7 +31,7 @@ class ESDepth(ExplorationStrategy):
       
         if random.random() >= epsilon:
             # Pick best
-            action = self.fa.best_action(S)
+            action = self.fa.best_action(S)[0]
         else:
             action = self.fa.random_action(S)
         

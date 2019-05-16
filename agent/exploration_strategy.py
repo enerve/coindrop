@@ -23,3 +23,9 @@ class ExplorationStrategy(object):
         
     def pick_action(self, S, moves):
         pass
+    
+    def store_exploration_state(self, pref=""):
+        pass
+    
+    def load_exploration_state(self, subdir, pref=""):
+        pass

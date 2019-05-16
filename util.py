@@ -80,8 +80,11 @@ def save_plot(pref=''):
     fname = fname + '.png'
     plt.savefig(fname, bbox_inches='tight')
 
-def heatmap(P, extent, title=None, cmap='hot', pref=None):
-    plt.imshow(P, cmap=cmap, interpolation='none', extent=extent, aspect='auto')
+def heatmap(P, extent, title=None, cmap='hot', aspect='auto', pref=''):
+    ''' Plots a heatmap
+        extent: (left, right, bottom, top)
+    '''
+    plt.imshow(P, cmap=cmap, interpolation='none', extent=extent, aspect=aspect)
     #plt.axis('off')
     if title is not None:
         plt.title(title)
@@ -201,7 +204,7 @@ class Plotter:
             ani.save(prefix() + pref + '.mp4', writer=writer)
         plt.close()
         
-def save_hist_animation(dists, bins, range, ymax=None, pref=""):
+def save_hist_animation(dists, bins, range, ymax=None, title="", pref=""):
     fig = plt.figure()
     ax1 = fig.add_subplot(1,1,1)
     plt.rcParams['animation.ffmpeg_path'] = arg_bin_dir + 'ffmpeg'
@@ -211,6 +214,7 @@ def save_hist_animation(dists, bins, range, ymax=None, pref=""):
         ax1.clear()
         if ymax:
             ax1.set_ylim([0, ymax])
+        ax1.set_title(title)
         ax1.hist(x, 100, range)
     ani = animation.FuncAnimation(fig, animate, dists, interval=10)
     ani.save(prefix() + pref + '.mp4', writer=writer)

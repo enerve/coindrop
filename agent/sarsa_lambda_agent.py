@@ -1,5 +1,5 @@
 '''
-Created on Apr 29, 2019
+Created on May 15, 2019
 
 @author: enerve
 '''
@@ -11,9 +11,9 @@ import numpy as np
 
 from .player import Player
 
-class QLambdaAgent(Player):
+class SarsaLambdaAgent(Player):
     '''
-    An agent that implements Q(λ) to explore and analyze the state-action space.
+    An agent that implements Sarsa(λ) to explore and analyze the state-action space.
     '''
 
     def __init__(self,
@@ -53,7 +53,7 @@ class QLambdaAgent(Player):
 
     def prefix(self):
         es_prefix = self.exploration_strategy.prefix()
-        pref = "q_lambda_e%s_l%0.2f" % (es_prefix, self.lam) + self.fa.prefix()
+        pref = "sarsa_lambda_e%s_l%0.2f" % (es_prefix, self.lam) + self.fa.prefix()
         return pref
 
     # ---------------- Single game ---------------
@@ -104,7 +104,7 @@ class QLambdaAgent(Player):
 
     def collect_stats(self, ep, num_episodes):
         if (ep+1)% 100 == 0:
-            self.logger.debug("QAgent avg R: %d/%d" % (self.sum_total_R, self.sum_played))
+            self.logger.debug("SarsaAgent avg R: %d/%d" % (self.sum_total_R, self.sum_played))
             self.stats_R.append(self.sum_total_R / self.sum_played)
             self.sum_total_R = 0
             self.sum_played = 0
@@ -122,7 +122,8 @@ class QLambdaAgent(Player):
                   title="recent rewards",
                   pref="rr")
 
-        delta_list = list(self.stats_delta.values())
+        delta_list = [deltas for name, deltas in self.stats_delta.items()]
+        #deltaArr = np.asarray(delta_list)
         util.plot(delta_list,
                   range(len(delta_list[0])),
                   labels=["agent Δ", "opponent Δ"],
@@ -171,7 +172,7 @@ class QLambdaAgent(Player):
         self.deltas = []
         self.targets = []
         self.currs = []
-
+        
         self.num_wins = 0
         self.num_loss = 0
         
@@ -193,29 +194,27 @@ class QLambdaAgent(Player):
     def _process_steps(self, steps_history, data_collector):
         ''' Observes and learns from the given episode '''
         S, A = None, None
-        Q_at_max_next, max_A = 0, None
+        Q_at_next = 0
         num_E = 0
         self.eligible_states = [None for i in range(self.max_moves)]
         self.eligible_state_target = [0 for i in range(self.max_moves)]
         for i, (R_, S_, A_) in enumerate(steps_history):
             if i > 0:
-                if A == max_A:
+                if i > 1:
                     # Reuse fa value from the previous iteration.
-                    curr_value = Q_at_max_next
+                    curr_value = Q_at_next
                 else:
                     # Unable to reuse. Need to calculate fa value.
                     curr_value = self.fa.value(S, A)
 
                 if S_ is not None:
-                    # off-policy
                     # TODO: speed this up, or parallelize it
-                    max_A, Q_at_max_next = self.fa.best_action(S_)
-                    #Q_at_max_next = self.fa.value(S_, max_A)
+                    Q_at_next = self.fa.value(S_, A_)
                 else:
-                    Q_at_max_next, max_A = 0, None
+                    Q_at_next = 0
                 
                 # Learn from the reward gotten for action taken last time
-                target = R_ + self.gamma * Q_at_max_next
+                target = R_ + self.gamma * Q_at_next
                 
 #                 self.recent_target = 0.99 * self.recent_target
 #                 self.recent_target += 0.01 * target 
@@ -227,11 +226,6 @@ class QLambdaAgent(Player):
                 num_E += 1
                 for j in range(num_E):
                     self.eligible_state_target[j] += delta * self.eligible_mult[num_E-j-1]
-                if A_ != max_A:
-                    # The policy diverted from Q* policy so restart eligibilities
-                    # But first, flush the eligibility updates into the FA
-                    self._record_eligibles(num_E, data_collector)
-                    num_E = 0
 
                 self.currs.append(curr_value)
                 self.targets.append(target)

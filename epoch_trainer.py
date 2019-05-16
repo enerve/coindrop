@@ -16,9 +16,12 @@ class EpochTrainer:
         history for an epoch and then training on that data.
     '''
 
-    def __init__(self, agent, opponent, prefix):
+    def __init__(self, agent, opponent, training_data_collector,
+                 validation_data_collector, prefix):
         self.agent = agent
         self.opponent = opponent
+        self.training_data_collector = training_data_collector
+        self.validation_data_collector = validation_data_collector
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
     
@@ -37,7 +40,12 @@ class EpochTrainer:
                           num_explorations, num_epochs, num_episodes_per_epoch)
         start_time = time.clock()
         
+        totaltime_explore = 0
+        totaltime_process = 0
+        totaltime_train = 0
+        
         #self.end_states = {}
+        debug_run_first_epoch_data_only = False
 
         ep = ep_s = self.ep
         for expl in range(num_explorations):
@@ -47,55 +55,75 @@ class EpochTrainer:
                 
                 best_R = -10000
                 
-                for ep_ in range(num_episodes_per_epoch):
-                    # Create game environment for a single game
-                    game = Game([self.agent, self.opponent])
-                    
-                    S = game.run()
-
-                    if ep_ % 10 == 0:
-                        # Save for validation
-                        self.agent.save_game_for_testing()
-                        self.opponent.save_game_for_testing()
-                    else:
-                        # Use for training
-                        self.agent.save_game_for_training()
-                        self.opponent.save_game_for_training()
-
-                    #stS = np.array2string(S, separator='')
-                    #if stS in self.end_states:
-                    #    self.end_states[stS] += 1
-                    #else:
-                    #    self.end_states[stS] = 1
-
-                    self.agent.collect_stats(ep, total_episodes)
-                    self.opponent.collect_stats(ep, total_episodes)
-            
-                    if util.checkpoint_reached(ep, 100):
-                        self.stat_e_1000.append(ep)
-                        self.logger.debug("Ep %d ", ep)
+                start_explore_time = time.clock()
+                
+                if not debug_run_first_epoch_data_only or epoch == 0:
+                    # Run games to collect new data               
+                    for ep_ in range(num_episodes_per_epoch):
+                        # Create game environment for a single game
+                        game = Game([self.agent, self.opponent])
                         
-                    ep += 1
+                        S = game.run()
+    
+                        if ep_ % 10 == 0:
+                            # Save for validation
+                            self.agent.save_game_for_testing()
+                            self.opponent.save_game_for_testing()
+                        else:
+                            # Use for training
+                            self.agent.save_game_for_training()
+                            self.opponent.save_game_for_training()
+    
+                        #stS = np.array2string(S, separator='')
+                        #if stS in self.end_states:
+                        #    self.end_states[stS] += 1
+                        #else:
+                        #    self.end_states[stS] = 1
+    
+                        self.agent.collect_stats(ep, total_episodes)
+                        self.opponent.collect_stats(ep, total_episodes)
+                
+                        if util.checkpoint_reached(ep, 100):
+                            self.stat_e_1000.append(ep)
+                            self.logger.debug("Ep %d ", ep)
+                            
+                        ep += 1
+                    self.training_data_collector.reset_dataset()
+                    self.validation_data_collector.reset_dataset()
+                else:
+                    # Reuse existing data
+                    self.training_data_collector.replay_dataset()
+                    self.validation_data_collector.replay_dataset()
+
+                start_process_time = time.clock()
+                totaltime_explore += (start_process_time - start_explore_time)
                 
                 self.logger.debug("Learning from agent history")
-                self.agent.process(self.agent.get_episodes_history())
+                self.agent.process(self.agent.get_episodes_history(),
+                                   self.training_data_collector,
+                                   "agent")
                 #self.agent.plot_last_hists()
-                self.agent.process_test(self.agent.get_test_episodes_history())
+                self.agent.process(self.agent.get_test_episodes_history(),
+                                   self.validation_data_collector,
+                                   "agent")
 
                 self.logger.debug("Learning from opponent history")
-                self.agent.process(self.opponent.get_episodes_history())
+                self.agent.process(self.opponent.get_episodes_history(),
+                                   self.training_data_collector,
+                                   "opponent")
                 #self.agent.plot_last_hists()
                 self.agent.collect_last_hists()
-                self.agent.process_test(self.opponent.get_test_episodes_history())
+                self.agent.process(self.opponent.get_test_episodes_history(),
+                                   self.validation_data_collector,
+                                   "opponent")
 
-                self.agent.learn()
-                
-                debug_first_epoch_data_only = False
-                if debug_first_epoch_data_only:
-                    num_episodes_per_epoch = 0
-                    self.agent.data_collector.replay_dataset()
-                else:
-                    self.agent.data_collector.reset_dataset()
+                start_training_time = time.clock()
+                totaltime_process += (start_training_time - start_process_time)
+
+                self.agent.learn(self.training_data_collector,
+                                 self.validation_data_collector)
+
+                totaltime_train += (time.clock() - start_training_time)
                 
                 # Sacrifice some data for the sake of GPU memory
                 if len(self.agent.get_episodes_history()) >= 10000:
@@ -136,6 +164,9 @@ class EpochTrainer:
         self.agent.store_collected_hists()
 
         self.logger.debug("Completed training in %0.1f minutes", (time.clock() - start_time)/60)
+        self.logger.debug("   Total time for Explore: %0.1f minutes", (totaltime_explore)/60)
+        self.logger.debug("   Total time for Process: %0.1f minutes", (totaltime_process)/60)
+        self.logger.debug("   Total time for Train:   %0.1f minutes", (totaltime_train)/60)
     
         self.ep = ep
         

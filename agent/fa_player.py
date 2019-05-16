@@ -39,7 +39,7 @@ class FAPlayer(Player):
         ''' Agent's turn. Chooses the next move '''
         
         # Choose action on-policy
-        return self.fa.best_action(self.S)
+        return self.fa.best_action(self.S)[0]
     
     def has_won(self):
         return self.total_R > 0

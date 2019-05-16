@@ -117,8 +117,23 @@ class NN_Bound_FA(ValueFunction):
         # Sends all bound actions as a batch to NN
         with torch.no_grad():
             XB = torch.stack(x_list).to(self.device)
-            output = self.net(XB)
+            output = torch.t(self.net(XB))
         return output[0] * 2 -1 #TODO: tanh
+
+#     def _value(self, S, actions):
+#         ''' Gets values for all given actions '''
+#         x_list = []
+#         for action in actions:
+#             B = self._bind_action(S, action)
+#             x_list.append(torch.stack(
+#                 [self.model.feature(B),
+#                  self.model.feature(np.flip(B, axis=1).copy())]))
+# 
+#         # Sends all bound actions as a batch to NN
+#         with torch.no_grad():
+#             XB = torch.stack(x_list).to(self.device)
+#             output = torch.t(self.net(XB))
+#         return output[0] * 2 -1 #TODO: tanh
 
     def value(self, S, action):
         output = self._value(S, [action])
@@ -132,7 +147,8 @@ class NN_Bound_FA(ValueFunction):
         with torch.no_grad():
             V = self._value(S, actions_list)
             i = torch.argmax(V).item()
-        return actions_list[i]
+            v = V[i].item()
+        return actions_list[i], v 
 
     def random_action(self, S):
         actions_list = self._valid_actions(S)
@@ -140,13 +156,13 @@ class NN_Bound_FA(ValueFunction):
       
     # ---------------- Update phase -------------------
     
-    def update(self, data_collector):
+    def update(self, training_data_collector, validation_data_collector):
         ''' Updates the value function model based on data collected since
             the last update '''
 
-        data_collector.before_update()
+        training_data_collector.before_update()
 
-        self.train(data_collector)
+        self.train(training_data_collector, validation_data_collector)
         self.test()
 
     def _prepare_data(self, steps_history_state, steps_history_action,
@@ -162,16 +178,13 @@ class NN_Bound_FA(ValueFunction):
                         steps_history_action,
                         steps_history_target)):
             if i == 250000:
-                self.logger.debug("----------nuff----------")
+                self.logger.warning("------ too much to prepare ----------")
                 break
             
             t = (t+1.0) / 2     #TODO: tanh
             for flip in [False, True]:
-                if flip:
-                    S = np.flip(S, axis=1).copy()
-                    a = 6 - a
-
-                B = self._bind_action(S, a)
+                B = self._bind_action(S, a) # TODO: move out
+                if flip: B = np.flip(B, axis=1).copy()
                 x = self.model.feature(B)
                 
                 steps_history_x.append(x)
@@ -187,13 +200,13 @@ class NN_Bound_FA(ValueFunction):
         ids = (l * ids.uniform_()).long()
         return ids
 
-    def train(self, data_collector):
+    def train(self, training_data_collector, validation_data_collector):
         self.logger.debug("Preparing training data--")
         steps_history_x, steps_history_t = \
-            self._prepare_data(*data_collector.get_training_data())
+            self._prepare_data(*training_data_collector.get_data())
         self.logger.debug("Preparing validation data--")
         val_steps_history_x, val_steps_history_t = \
-            self._prepare_data(*data_collector.get_validation_data())
+            self._prepare_data(*validation_data_collector.get_data())
         
         SHX = torch.stack(steps_history_x).to(self.device)
         SHT = torch.tensor(steps_history_t).to(self.device)
@@ -327,9 +340,10 @@ class NN_Bound_FA(ValueFunction):
                   live=True)
         
     def save_model(self, pref=""):
-        util.torch_save(self.net, pref)
+        util.torch_save(self.net, "boundNN_" + pref)
 
-    def load_model(self, fname, load_subdir):
+    def load_model(self, load_subdir, pref=""):
+        fname = "boundNN_" + pref
         net = util.torch_load(fname, load_subdir)
         net.eval()
         self.init_net(net)

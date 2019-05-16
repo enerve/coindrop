@@ -6,7 +6,10 @@ Created on 1 May 2019
 
 import numpy as np
 import random
+
 from .exploration_strategy import ExplorationStrategy
+import logging
+import util
 
 class ESPatches(ExplorationStrategy):
     '''
@@ -18,6 +21,9 @@ class ESPatches(ExplorationStrategy):
         Constructor
         '''
         super().__init__(config, explorate, fa)
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.DEBUG)
+
         self.num_rows = config.NUM_ROWS
         self.num_cols = config.NUM_COLUMNS
 
@@ -26,7 +32,7 @@ class ESPatches(ExplorationStrategy):
         self.recent_epsilon = 1.0
         
     def prefix(self):
-        return "pat"
+        return "esp"
         
     def pick_action(self, S, moves):
         N0 = self.explorate
@@ -49,8 +55,15 @@ class ESPatches(ExplorationStrategy):
       
         if random.random() >= epsilon:
             # Pick best
-            action = self.fa.best_action(S)
+            action = self.fa.best_action(S)[0]
         else:
             action = self.fa.random_action(S)
         
         return action
+
+    def store_exploration_state(self, pref=""):
+        util.dump(self.N, "es_patches", pref)
+
+    def load_exploration_state(self, subdir, pref=""):
+        self.logger.debug("Loading exploration state")
+        self.N = util.load("es_patches", subdir, pref)
