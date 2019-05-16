@@ -134,7 +134,7 @@ def main():
         trainer.report_stats()
 
     
-    agent_fa.save_model("v3")
+    agent_fa.save_model("v4")
     
     
 def test_agent_fa(agent_fa, opponent):

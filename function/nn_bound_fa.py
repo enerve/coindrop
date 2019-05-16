@@ -106,34 +106,39 @@ class NN_Bound_FA(ValueFunction):
         self.logger.warning("Action on full column! %d on \n%s", action, S)
         return None        
         
-    def _value(self, S, actions):
-        ''' Gets values for all given actions '''
-        x_list = []
-        for action in actions:
-            B = self._bind_action(S, action)
-            x = self.model.feature(B)
-            x_list.append(x)
-
-        # Sends all bound actions as a batch to NN
-        with torch.no_grad():
-            XB = torch.stack(x_list).to(self.device)
-            output = torch.t(self.net(XB))
-        return output[0] * 2 -1 #TODO: tanh
-
 #     def _value(self, S, actions):
 #         ''' Gets values for all given actions '''
 #         x_list = []
 #         for action in actions:
 #             B = self._bind_action(S, action)
-#             x_list.append(torch.stack(
-#                 [self.model.feature(B),
-#                  self.model.feature(np.flip(B, axis=1).copy())]))
+#             x = self.model.feature(B)
+#             x_list.append(x)
 # 
 #         # Sends all bound actions as a batch to NN
 #         with torch.no_grad():
 #             XB = torch.stack(x_list).to(self.device)
 #             output = torch.t(self.net(XB))
 #         return output[0] * 2 -1 #TODO: tanh
+
+    def _value(self, S, actions):
+        ''' Gets values for all given actions '''
+        x_list = []
+        xm_list = []
+        for action in actions:
+            B = self._bind_action(S, action)
+            x_list.append(self.model.feature(B))
+            xm_list.append(self.model.feature(np.flip(B, axis=1).copy()))
+        x_list.extend(xm_list)
+        l = len(actions)
+        
+        # Sends all bound actions as a batch to NN
+        with torch.no_grad():
+            XB = torch.stack(x_list).to(self.device)
+            output = torch.t(self.net(XB))
+            op1 = output[0][0:l]
+            op2 = output[0][l:2*l]
+            opavg = (op1+op2)/2
+        return opavg * 2 -1 #TODO: tanh
 
     def value(self, S, action):
         output = self._value(S, [action])
@@ -182,8 +187,8 @@ class NN_Bound_FA(ValueFunction):
                 break
             
             t = (t+1.0) / 2     #TODO: tanh
+            B = self._bind_action(S, a)
             for flip in [False, True]:
-                B = self._bind_action(S, a) # TODO: move out
                 if flip: B = np.flip(B, axis=1).copy()
                 x = self.model.feature(B)
                 
