@@ -56,8 +56,8 @@ function draw_grid() {
 	}
 }
 
-function placeCoin(x, y, turn) {
-	placeCoinID('slot'+x+y, turn)
+function placeCoin(x, y, coin) {
+	placeCoinID('slot'+x+y, coin)
 }
 
 function placeCoinID(id, player) {
@@ -78,8 +78,8 @@ function clicked(id) {
 	x = parseInt(id[4])
 	y = parseInt(id[5])
 	
-	if (game.isValidMove(x, y)) {
-		placeCoin(x, y, game.current_player())
+	if (game.isUserTurn() && game.isValidMove(x, y)) {
+		placeCoin(x, y, game.currentCoin())
 		game.move(x, y)
 	}
 	

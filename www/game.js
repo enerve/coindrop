@@ -4,6 +4,10 @@
  * @author: enerve
  */
 
+
+const USER = 0
+const AGENT = 1
+
 /**
  * Manage the Connect-4 game and mechanics
  */
@@ -14,14 +18,28 @@ Game = function() {
 	}
 	this.movesLeft = 6*7
 	
-	this.turn = -1
+	this.coin = 1
+	this.currentPlayer = -1 // Undefined
 	this.gameOver = false
 	
 	this.agent = new Agent()
+	this.agent.loadModel().then(() => {
+    	// generate model input
+    	console.log('loaded onnx')
+    	this.handOff(AGENT)
+    });
 };
 	
 Game.prototype.isValidMove = function(x, y) {
 	return (this.B[y][x]==0 && (y==0 || this.B[y-1][x] != 0) && !this.gameOver)
+};
+
+Game.prototype.currentCoin = function() {
+	return this.coin
+};
+
+Game.prototype.isUserTurn = function() {
+	return (this.currentPlayer == USER)
 };
 
 Game.prototype.move = function(x, y) {
@@ -29,19 +47,15 @@ Game.prototype.move = function(x, y) {
 		alert('expected a valid move!')
 		return
 	}
-	this.B[y][x] = this.turn
+	this.B[y][x] = this.coin
 	
-	this.update_state(x, y)
+	this.updateState(x, y)
 };
 
-Game.prototype.current_player = function() {
-	return this.turn
-};
-
-Game.prototype.update_state = function(x, y) {
+Game.prototype.updateState = function(x, y) {
 	this.movesLeft--
-	if (hasWon(this.B, this.turn, x, y)) {
-		alert(this.turn + " just won")
+	if (hasWon(this.B, this.coin, x, y)) {
+		alert(this.coin + " just won")
 		this.gameOver = true
 		return
 	} else if (this.movesLeft == 0) {
@@ -50,9 +64,13 @@ Game.prototype.update_state = function(x, y) {
 		return
 	}
 	
-	this.turn = -this.turn;
+	this.coin = -this.coin;
+	this.handOff(1 - this.currentPlayer)
+};
 
-	if (this.turn == 1) {
+Game.prototype.handOff = function(nextPlayer) {
+	this.currentPlayer = nextPlayer
+	if (this.currentPlayer == AGENT) {
 		// Agent's turn to play
 		this.agent.bestAction(this.B).then((a) => this.agentAction(a))
 	}
@@ -68,7 +86,7 @@ Game.prototype.agentAction = function(a) {
 		alert("Agent chose invalid move: " + x_)
 		return
 	}
-	placeCoin(x_, y_, this.turn)
+	placeCoin(x_, y_, this.coin)
 	this.move(x_, y_)
 };
 

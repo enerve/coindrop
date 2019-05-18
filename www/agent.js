@@ -8,14 +8,15 @@
  * Agent that uses an onnx-initialized NN to respond to connect-4 games
  */
 Agent = function() {
+};
+
+Agent.prototype.loadModel = async function() {
 	// create a session
     this.onnxSession = new onnx.InferenceSession();
     // load the ONNX model file
-    this.onnxSession.loadModel("./986337v3.onnx").then(() => {
-    	// generate model input
-    	console.log('loaded onnx')
-    });};
-
+    await this.onnxSession.loadModel("./986337v3.onnx")
+};
+    
 Agent.prototype.bestAction = async function(S) {
 	const inferenceInputs = this.validBoundActions(S);
 	// execute the model for each action
@@ -28,7 +29,7 @@ Agent.prototype.bestAction = async function(S) {
 			// consume the output
 			const outputVal = output.values().next().value.data[0];
 		    
-			str += a + ": " + outputVal.toFixed(2) + ", "
+			str += a + ":" + outputVal.toFixed(4) + ", "
 			if (outputVal > best) {
 		    	best = outputVal;
 		    	bestA = a;
