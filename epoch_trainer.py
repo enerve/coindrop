@@ -136,8 +136,8 @@ class EpochTrainer:
                                       len(self.agent.get_episodes_history()),
                                       len(self.opponent.get_episodes_history()))
                 
-                agent_sum_totalR = 0
-                num_wins = 0
+                agent_sum_score = 0
+                num_wins = num_losses = 0
                 agent_sum_win_moves = 0
                 agent_sum_lose_moves = 0
                 test_runs = 100
@@ -145,23 +145,22 @@ class EpochTrainer:
                 for tep in range(test_runs):
                     game = Game([fa_player, self.opponent])
                     game.run()
-                    agent_sum_totalR += fa_player.game_performance()
-                    if fa_player.has_won():
-                        num_wins += 1
+                    agent_sum_score += fa_player.game_performance()
+                    if fa_player.game_performance() > 0:
+                        num_wins += 1 
                         agent_sum_win_moves += fa_player.moves
-                    else:
+                    elif fa_player.game_performance() < 0:
+                        num_losses += 1
                         agent_sum_lose_moves += fa_player.moves
-                self.logger.debug("FA agent R: %0.2f / %d" % (agent_sum_totalR, test_runs))
+                self.logger.debug("FA agent R: %0.2f   (%d vs %d) / %d" % 
+                                  (agent_sum_score, num_wins, num_losses, test_runs))                
                 if num_wins > 0:
                     self.logger.debug("Avg #moves for win: %0.2f" % (agent_sum_win_moves/num_wins))
-                num_losses = test_runs - num_wins
                 if num_losses > 0:
                     self.logger.debug("Avg #moves for loss: %0.2f" % (agent_sum_lose_moves/num_losses))
                 self.logger.debug("  Clock: %d seconds", time.clock() - start_time)
 
             #self.agent.restart_exploration(1)
-
-        self.agent.store_collected_hists()
 
         self.logger.debug("Completed training in %0.1f minutes", (time.clock() - start_time)/60)
         self.logger.debug("   Total time for Explore: %0.1f minutes", (totaltime_explore)/60)
@@ -181,41 +180,19 @@ class EpochTrainer:
         # save stats to file
         self.save_stats(pref=pref)        
     
-    def save_stats(self, pref=None):
-        self.agent.save_stats(pref=pref)
+    def save_stats(self, pref=""):
+        self.agent.save_stats(pref="a_" + pref)
+        self.opponent.save_stats(pref="o_" + pref)
+
+        self.agent.store_collected_hists()
         
-        A = np.asarray([
-            self.stat_bestpath_times,
-            self.stat_recent_total_R,
-            self.stat_e_bp,
-            self.stat_bestpath_R,
-            ], dtype=np.float)
-        util.dump(A, "statsA", pref)
-    
-        B = np.asarray(self.stat_m, dtype=np.float)
-        util.dump(B, "statsB", pref)
-    
-        C = np.asarray(self.stat_e_1000, dtype=np.float)
-        util.dump(C, "statsC", pref)
-        
-        # TODO: Save and load #episodes done in total
-        
-    def load_stats(self, subdir, pref=None):
-        self.agent.load_stats(subdir, pref)
-    
+    def load_stats(self, subdir, pref=""):
         self.logger.debug("Loading stats...")
-        
-        A = util.load("statsA", subdir, pref)
-        self.stat_bestpath_times = A[0]
-        self.stat_recent_total_R = A[1]
-        self.stat_e_bp = A[2]
-        self.stat_bestpath_R = A[3]
-        
-        B = util.load("statsB", subdir, pref)
-        self.stat_m = B
-        
-        C = util.load("statsC", subdir, pref)
-        self.stat_e_1000 = C
+
+        self.agent.load_stats(subdir, pref="a_" + pref)
+        self.opponent.load_stats(subdir, pref="o_" + pref)
+    
+        self.agent.load_collected_hists(subdir)
     
     def report_stats(self, pref=""):
         self.agent.report_stats(pref="a_" + pref)

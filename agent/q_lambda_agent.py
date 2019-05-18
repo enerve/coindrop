@@ -104,7 +104,7 @@ class QLambdaAgent(Player):
 
     def collect_stats(self, ep, num_episodes):
         if (ep+1)% 100 == 0:
-            self.logger.debug("QAgent avg R: %d/%d" % (self.sum_total_R, self.sum_played))
+            self.logger.debug("Agent avg R: %d/%d" % (self.sum_total_R, self.sum_played))
             self.stats_R.append(self.sum_total_R / self.sum_played)
             self.sum_total_R = 0
             self.sum_played = 0
@@ -113,6 +113,18 @@ class QLambdaAgent(Player):
         
         self.sum_total_R += self.total_R
         self.sum_played += 1 
+
+    def save_stats(self, pref=""):
+        self.fa.save_stats(pref)
+        
+        util.dump(np.asarray(self.stats_R, dtype=np.float), "statsR", pref)
+        util.dump(self.stats_delta, "statsDelta", pref)
+
+    def load_stats(self, subdir, pref=""):
+        self.fa.load_stats(subdir, pref)
+        
+        self.stats_R = util.load("statsR", subdir, pref).tolist()
+        self.stats_delta = util.load("statsDelta", subdir, pref)[()]
 
     def report_stats(self, pref):
         self.fa.report_stats(pref)
@@ -269,12 +281,9 @@ class QLambdaAgent(Player):
         util.save_hist_animation(self.all_currs, 100, (-1.2, 1.2), maxlen, "curr value", "currhist")
         util.save_hist_animation(self.all_targets, 100, (-1.2, 1.2), maxlen, "targets", "targethist")
         util.save_hist_animation(self.all_deltas, 100, (-1.2, 1.2), maxlen, "delta", "deltahist")
-        AC = np.asarray(self.all_currs)
-        AT = np.asarray(self.all_targets)
-        AD = np.asarray(self.all_deltas)
-        util.dump(AC, "currhist")
-        util.dump(AT, "targethist")
-        util.dump(AD, "deltahist")
+
+        A = np.asarray([self.all_currs, self.all_targets, self.all_deltas])
+        util.dump(A, "valuehistory")
 
     # ---------------- Train FA ---------------
 

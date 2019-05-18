@@ -43,10 +43,10 @@ class Player(object):
     def collect_stats(self, ep, num_episodes):
         pass
     
-    def save_stats(self, pref=None):
+    def save_stats(self, pref=""):
         pass
 
-    def load_stats(self, subdir, pref=None):
+    def load_stats(self, subdir, pref=""):
         pass
 
     def report_stats(self, pref):

@@ -108,11 +108,12 @@ def main():
         elif True:
             # To start training from where we last left off.
             # i.e., load episodes history, exploration state, and FA model
-            dir = "937454_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i500_FBAM__NNconvnetlook5__"
+            dir = "176827_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i50_FBAM__NNconvnetlookab5__"
             agent.load_episode_history("agent", dir)
             es.load_exploration_state(dir)
             opponent.load_episode_history("opponent", dir)
             agent_fa.load_model(dir, "v3")
+            trainer.load_stats(dir)
         elif False:
             # For single-epoch training/testing.
             # Load last training dataset and model, but not earlier history
@@ -127,11 +128,12 @@ def main():
         agent.store_episode_history("agent")
         es.store_exploration_state()
         opponent.store_episode_history("opponent")
-        
         training_data_collector.store_last_dataset("final_t")
         validation_data_collector.store_last_dataset("final_v")
-    
+        agent_fa.save_model("v3")
+
         trainer.report_stats()
+        trainer.save_stats()
     else: # load model, export to onnx
         
 #         import onnx
@@ -139,13 +141,12 @@ def main():
 #         onnx.checker.check_model(model)
 #         print(onnx.helper.printable_graph(model.graph))
         
-        dir = "419230_Coindrop_DR_q_lambda_epat_l0.90neural_a0.0005_r0_b512_i500_F_NNconvnetlook3__"
-        agent_fa.load_model("modelv2", dir)
-        agent_fa.export_to_onnx("coindropV2.onnx")
-
-    
-    agent_fa.save_model("v4")
-    
+        dir = "986337_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i500_FBAM__NNconvnetlookab5__"
+        agent_fa.load_model(dir, "v3")
+        
+        agent_fa.export_to_onnx("v3")
+        #agent_fa.viz()
+        
     
 def test_agent_fa(agent_fa, opponent):
     logger = logging.getLogger()

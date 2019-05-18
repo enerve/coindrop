@@ -59,13 +59,24 @@ class NN_Bound_FA(ValueFunction):
         net = nn.Sequential(
             nn.Conv2d(2, 30, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(30, 50, kernel_size=2, stride=1, padding=0),
+            nn.Conv2d(30, 50, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             Flatten(),
-            nn.Linear(50*6*5, 500),
+            nn.Linear(50*7*6, 500),
             nn.ReLU(),
             nn.Linear(500, 1),
             nn.Sigmoid()) #TODO: tanh
+
+#         net = nn.Sequential(
+#             nn.Conv2d(2, 100, kernel_size=3, stride=1, padding=1),
+#             nn.ReLU(),
+#             Flatten(),
+#             nn.Linear(100*7*6, 500),
+#             nn.ReLU(),
+#             nn.Linear(500, 500),
+#             nn.ReLU(),
+#             nn.Linear(500, 1),
+#             nn.Sigmoid()) #TODO: tanh
 
         self.init_net(net)
 
@@ -302,17 +313,36 @@ class NN_Bound_FA(ValueFunction):
     def collect_stats(self, ep):
         pass
     
+    def _cost_arrays_numpy(self, skip=0):
+        n_cost = np.asarray(self.stat_error_cost[skip:]).T
+        labels = list(range(n_cost.shape[1]))        
+
+        n_v_cost = np.asarray(self.stat_val_error_cost[skip:]).T
+        labels.extend(["val%d" % i for i in range(n_v_cost.shape[1])])
+        cost = np.concatenate([n_cost, n_v_cost], axis=0)
+        
+        return cost, n_cost, n_v_cost
+    
+    def save_stats(self, pref=""):
+        cost, n_cost, n_v_cost = self._cost_arrays_numpy(skip=0)
+
+        util.dump(cost, "statsNNcost", pref)
+
+    def load_stats(self, subdir, pref=""):
+        cost = util.load("statsNNcost", subdir, pref)
+        n = len(cost)
+        
+        n_cost, n_v_cost = cost[0:n//2], cost[n//2:n]
+        self.stat_error_cost = [x for x in n_cost.T]
+        self.stat_val_error_cost = [x for x in n_v_cost.T]
+        
+
     def report_stats(self, pref=""):
         num = len(self.stat_error_cost[1:])
 
-        n_cost = np.asarray(self.stat_error_cost[1:]).T
+        cost, n_cost, n_v_cost = self._cost_arrays_numpy(skip=1)
         labels = list(range(n_cost.shape[1]))        
-
-        n_v_cost = np.asarray(self.stat_val_error_cost[1:]).T
         labels.extend(["val%d" % i for i in range(n_v_cost.shape[1])])
-        cost = np.concatenate([n_cost, n_v_cost], axis=0)
-        avgcost = np.stack([n_cost.mean(axis=0), n_v_cost.mean(axis=0)], axis=0)
-        
         util.plot(cost,
                   range(num),
                   labels = labels,
@@ -320,14 +350,14 @@ class NN_Bound_FA(ValueFunction):
                   pref=pref+"cost",
                   ylim=None)
 
-        util.plot(avgcost,
-                  range(num),
-                  labels = ["training cost", "validation cost"],
-                  title = "NN training/validation cost",
-                  pref=pref+"avgcost",
-                  ylim=None)
+#         avgcost = np.stack([n_cost.mean(axis=0), n_v_cost.mean(axis=0)], axis=0)
+#         util.plot(avgcost,
+#                   range(num),
+#                   labels = ["training cost", "validation cost"],
+#                   title = "NN training/validation cost",
+#                   pref=pref+"avgcost",
+#                   ylim=None)
 
-    
     def live_stats(self):
         num = len(self.stat_error_cost[1:])
         
@@ -360,3 +390,12 @@ class NN_Bound_FA(ValueFunction):
             util.torch_export(self.net, dummy_X, fname)
         self.logger.debug("Exported to ONNX")
         
+    def viz(self):
+        from torchviz import make_dot
+        dummy_state = np.random.randint(-1, 2, (6, 7))
+        dummy_X = self.model.feature(dummy_state).unsqueeze(0)
+        out = self.net(dummy_X)
+        dot = make_dot(out, params=dict(self.net.named_parameters()))
+        dot.format = 'svg'
+        dot.render()
+        self.logger.debug("plotted viz")
