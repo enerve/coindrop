@@ -5,6 +5,7 @@ Created on 2 May 2019
 '''
 
 import torch.nn as nn
+import torch
 
 class Flatten(nn.Module):
     def forward(self, x):
@@ -12,4 +13,4 @@ class Flatten(nn.Module):
         #return x.view(N, -1)
         x = x.view(-1)
         return x.unsqueeze(0)
-    
+#         return torch.flatten(x, start_dim=1)
