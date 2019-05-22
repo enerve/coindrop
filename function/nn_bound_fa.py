@@ -20,6 +20,8 @@ class NN_Bound_FA(ValueFunction):
     '''
     A neural-network action-value function approximator for a single (bound)
     action.
+    "Bound actions": the action is first applied to the board state before 
+    feeding into the NN, and the output is a single value node.
     '''
 
     def __init__(self,
@@ -51,6 +53,7 @@ class NN_Bound_FA(ValueFunction):
         self.stat_error_cost = []
         self.stat_reg_cost = []
         self.stat_val_error_cost = []
+        self.W_norm = []
                 
         self.sids = self._sample_ids(3000, self.batch_size)
         self.last_loss = torch.zeros(self.batch_size, 7).cuda()
@@ -59,10 +62,10 @@ class NN_Bound_FA(ValueFunction):
         net = nn.Sequential(
             nn.Conv2d(2, 30, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(30, 50, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(30, 50, kernel_size=2, stride=1, padding=0),
             nn.ReLU(),
             Flatten(),
-            nn.Linear(50*7*6, 500),
+            nn.Linear(50*6*5, 500),
             nn.ReLU(),
             nn.Linear(500, 1),
             nn.Sigmoid()) #TODO: tanh
@@ -131,6 +134,23 @@ class NN_Bound_FA(ValueFunction):
 #             output = torch.t(self.net(XB))
 #         return output[0] * 2 -1 #TODO: tanh
 
+    def _bound_value(self, x_list):
+        l = len(x_list) // 2
+        # Sends all bound actions as a batch to NN
+        with torch.no_grad():
+            XB = torch.stack(x_list).to(self.device)
+            output = torch.t(self.net(XB))
+            op1 = output[0][0:l]
+            op2 = output[0][l:2*l]
+            opavg = (op1+op2)/2
+        return opavg * 2 -1 #TODO: tanh
+
+    def bound_value(self, B):
+        x_list = []
+        x_list.append(self.model.feature(B))
+        x_list.append(self.model.feature(np.flip(B, axis=1).copy()))
+        return self._bound_value(x_list)
+
     def _value(self, S, actions):
         ''' Gets values for all given actions '''
         x_list = []
@@ -140,16 +160,8 @@ class NN_Bound_FA(ValueFunction):
             x_list.append(self.model.feature(B))
             xm_list.append(self.model.feature(np.flip(B, axis=1).copy()))
         x_list.extend(xm_list)
-        l = len(actions)
-        
-        # Sends all bound actions as a batch to NN
-        with torch.no_grad():
-            XB = torch.stack(x_list).to(self.device)
-            output = torch.t(self.net(XB))
-            op1 = output[0][0:l]
-            op2 = output[0][l:2*l]
-            opavg = (op1+op2)/2
-        return opavg * 2 -1 #TODO: tanh
+
+        return self._bound_value(x_list)
 
     def value(self, S, action):
         output = self._value(S, [action])
@@ -205,7 +217,7 @@ class NN_Bound_FA(ValueFunction):
                 
                 steps_history_x.append(x)
                 steps_history_t.append(t)
-                
+
             if (i+1) % 10000 == 0:
                 self.logger.debug("prepared %d*2", i+1)                
             
@@ -296,6 +308,14 @@ class NN_Bound_FA(ValueFunction):
                     mean_error_cost = suml / (countl + 0.01)
                     self.stat_val_error_cost.append(mean_error_cost.cpu().numpy())
 
+                    # Weight parameters
+#                     w_norm_list = []
+#                     for param in self.net.parameters():
+#                         w_norm_list.append(torch.norm(param.data))                        
+                    self.W_norm.append(
+                        [torch.norm(param.data).item() for param in self.net.parameters()])
+
+
                     #self.live_stats()
 
             if (i+1) % 1000 == 0:
@@ -358,6 +378,13 @@ class NN_Bound_FA(ValueFunction):
 #                   pref=pref+"avgcost",
 #                   ylim=None)
 
+        W = np.asarray(self.W_norm).T
+        util.plot(W,
+                  range(len(self.W_norm)),
+                  labels=list(range(len(self.W_norm))),
+                  title="Weights L2 norm",
+                  pref=pref+"W")
+
     def live_stats(self):
         num = len(self.stat_error_cost[1:])
         
@@ -379,6 +406,7 @@ class NN_Bound_FA(ValueFunction):
 
     def load_model(self, load_subdir, pref=""):
         fname = "boundNN_" + pref
+        self.logger.debug("Loading model %s", fname)
         net = util.torch_load(fname, load_subdir)
         net.eval()
         self.init_net(net)

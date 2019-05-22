@@ -9,4 +9,6 @@ from .nn_fa import NN_FA
 from .nn_bound_fa import NN_Bound_FA
 from .feature_eng import FeatureEng
 from .fa_data_collector import FADataCollector
+from .coindrop_feature_eng import CoindropFeatureEng
 from .bound_action_model import BoundActionModel
+from .fe_elevation import FEElevation

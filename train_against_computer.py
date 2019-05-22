@@ -11,7 +11,6 @@ from agent import *
 # from function import BoundActionModel
 # from function import NNBoundFA
 from function import *
-from coindrop_feature_eng import CoindropFeatureEng
 import trainer_helper as th
 import cmd_line
 import log
@@ -52,6 +51,7 @@ def main():
     
     coindrop_fe = CoindropFeatureEng(config)
     bound_action_model = BoundActionModel(config)
+    fe_elevation = FEElevation(config)
     
 #     agent_fa = NN_FA(
 #                     0.0005, # alpha ... #4e-5 old alpha without batching
@@ -63,8 +63,8 @@ def main():
                     0.0005, # alpha ... #4e-5 old alpha without batching
                     0.5, # regularization constant
                     512, # batch_size
-                    500, # max_iterations
-                    bound_action_model)
+                    150, # max_iterations
+                    fe_elevation)
 
     training_data_collector = FADataCollector(agent_fa)
     validation_data_collector = FADataCollector(agent_fa)
@@ -81,34 +81,43 @@ def main():
     # ------------------ Training -------------------
 
     if False:
-        if True: #If train model on dataset
+        if False: #If train model on dataset
             dir = "847998_Coindrop_DR_q_lambda_eesp_l0.95neural_bound_a0.0005_r0_b512_i500_FBAM__NNconvnetlook5__"
             training_data_collector.load_dataset(dir, "final", "t")
             validation_data_collector.load_dataset(dir, "final", "v")
             agent_fa.train(training_data_collector, validation_data_collector)
             agent_fa.report_stats()
         else: #Load model directly
-            dir = "808544_Coindrop_DR_q_lambda_eesp_l0.95neural_bound_a0.0005_r0_b512_i500_FBAM__NNconvnetlook3__"
+            dir = "457356_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i500_FBAM__NNconvnetlookab5__"
             agent_fa.load_model(dir, "v3")
             
-        test_agent_fa(agent_fa, LookaheadABAgent(5))
+        test_agent_fa(FAPlayer(agent_fa), LookaheadABAgent(5))
     
     elif True: # If Run episodes
         
         opponent = LookaheadABAgent(5)
+        test_agent = FAPlayer(agent.fa)
         
         trainer = EpochTrainer(agent, opponent, 
                                training_data_collector,
                                validation_data_collector,
+                               test_agent,
                                agent.prefix() + opponent.prefix())
         
-        if False:
+        if True:
             # To start training afresh 
             agent_fa.initialize_default_net()
+        elif False:
+            # To start fresh but using existing episode history / exploration
+            dir = "457356_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i500_FBAM__NNconvnetlookab5__"
+            agent_fa.initialize_default_net()
+            agent.load_episode_history("agent", dir)
+            es.load_exploration_state(dir)
+            opponent.load_episode_history("opponent", dir)
         elif True:
             # To start training from where we last left off.
             # i.e., load episodes history, exploration state, and FA model
-            dir = "176827_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i50_FBAM__NNconvnetlookab5__"
+            dir = "492186_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i1000_FBAM__NNconvnetlookab5__"
             agent.load_episode_history("agent", dir)
             es.load_exploration_state(dir)
             opponent.load_episode_history("opponent", dir)
@@ -122,9 +131,9 @@ def main():
             validation_data_collector.load_dataset(dir, "final", "v")
             agent_fa.load_model(dir, "v3")
     
-        trainer.train(500, 30, 1)
+        trainer.train(20, 3, 1)
         #trainer.save_to_file()
-    
+
         agent.store_episode_history("agent")
         es.store_exploration_state()
         opponent.store_episode_history("opponent")
@@ -148,7 +157,7 @@ def main():
         #agent_fa.viz()
         
     
-def test_agent_fa(agent_fa, opponent):
+def test_agent_fa(fa_player, opponent):
     logger = logging.getLogger()
     agent_total_R = 0
     agent_wins = 0
@@ -156,7 +165,6 @@ def test_agent_fa(agent_fa, opponent):
     agent_sum_moves = 0
     test_runs = 100
     logger.debug("Testing %d games against %s", test_runs, opponent.prefix())
-    fa_player = FAPlayer(agent_fa)
     start_time = time.clock()
     for tep in range(test_runs):
         game = Game([fa_player, opponent])
