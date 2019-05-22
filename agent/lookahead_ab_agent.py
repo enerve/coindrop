@@ -5,57 +5,32 @@ Created on May 14, 2019
 '''
 
 import mechanics
-import util
 
 import logging
-import numpy as np
 import random
 
-from .player import Player
+from .explorer import Explorer
 
-class LookaheadABAgent(Player):
+class LookaheadABAgent(Explorer):
     '''
     Recursive lookahead player, using alpha-beta pruning.
     '''
 
-    def __init__(self, depth):
+    def __init__(self, config, depth):
         ''' Initialize for a new game, and note player's start state '''
+        super().__init__(config)
+        
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.depth = depth
-        
-        self.episodes_history = []
-        self.test_episodes_history = []
 
-        self.recent_R = 0
-        self.recent_played = 0
-        self.sum_moves = 0
-        
     def prefix(self):
         pref = "lookab%d" % self.depth
         return pref
 
     # ---------------- Single game ---------------
-
-    def init_game(self, initial_state, initial_heights):
-        self.S = initial_state
-        self.R = 0
-        self.h = initial_heights
-        self.total_R = 0
-        self.steps_history = []
-        
-    def see_move(self, reward, new_state, new_heights, moves=None):
-        ''' Observe the effects on this agent of an action taken - possibly by
-            another agent.
-            reward Reward earned by this agent
-        '''
-        self.S = new_state
-        self.h = new_heights
-        self.R += reward
-        self.total_R += reward
-        if moves: self.moves = moves
          
-    def next_move(self):
+    def _choose_move(self):
         ''' Agent's turn. Chooses the next move '''
 
 #         _, options = self._best_move2(self.depth, coin=1, return_options=True)
@@ -64,11 +39,6 @@ class LookaheadABAgent(Player):
         # choose randomly from best options
         idx = random.randint(0, len(options)-1)
         A = options[idx]
-        
-        self.steps_history.append((self.R, self.S, A))
-
-        self.R = 0  # prepare to collect rewards
-
         return A
 
     def _best_move(self, depth, coin, alpha, beta, return_options=False):
@@ -134,56 +104,3 @@ class LookaheadABAgent(Player):
             best = 0
 
         return best, options
-
-    def game_over(self):
-        ''' Wrap up game  '''
-        self.steps_history.append((self.R, None, None))
-
-        self.sum_moves += self.moves
-
-    def save_game_for_training(self):
-        self.episodes_history.append(self.steps_history)
-
-    def save_game_for_testing(self):
-        self.test_episodes_history.append(self.steps_history)
-
-    def collect_stats(self, ep, num_episodes):
-        if (ep+1)% 100 == 0:
-            #self.logger.debug("RandomAgent recent R: %d/%d" % (self.recent_R, self.recent_played))
-            self.recent_R = 0
-            self.recent_played = 0
-        
-        self.recent_R += self.total_R
-        self.recent_played += 1 
-
-    def total_reward(self):
-        
-        # increased significance of a win or a loss the sooner it happened
-        factor = (42-self.moves)/42
-        
-        return factor * self.total_R
-
-    def get_episodes_history(self):
-        return self.episodes_history
-
-    def get_test_episodes_history(self):
-        return self.test_episodes_history
-
-    def decimate_history(self):
-        self.episodes_history = [self.episodes_history[i] for i in
-                                 range(len(self.episodes_history)) 
-                                 if i % 10 > 0]
-        self.test_episodes_history = [self.test_episodes_history[i] for i in 
-                                      range(len(self.test_episodes_history)) 
-                                      if i % 10 > 0]
-    def store_episode_history(self, fname):
-        EH = np.asarray(self.episodes_history)
-        util.dump(EH, fname, "EH")
-        VEH = np.asarray(self.test_episodes_history)
-        util.dump(VEH, fname, "VEH")
- 
-    def load_episode_history(self, fname, subdir):
-        self.episodes_history = [[(s[0], s[1], s[2]) for s in sh]
-                                 for sh in util.load(fname, subdir, suffix="EH")]
-        self.test_episodes_history = [[(s[0], s[1], s[2]) for s in sh] 
-                                      for sh in util.load(fname, subdir, suffix="VEH")]

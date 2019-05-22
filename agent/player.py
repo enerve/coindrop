@@ -12,13 +12,15 @@ class Player(object):
     def init_game(self, initial_state, initial_heights):
         ''' Initialize for a new game, and note player's start state
         '''
-        self.S = initial_state
+        self.total_R = 0
+        self.moves = 0
         
     def see_move(self, reward, new_state, h, moves=0):
         ''' Observe the effects on this agent of an action taken - possibly by
             another agent.
         '''
-        self.S_ = new_state
+        self.total_R += reward
+        self.moves = moves
          
     def next_move(self):
         ''' Agent's turn. Chooses the next move '''
@@ -26,11 +28,16 @@ class Player(object):
 
     def game_over(self):
         ''' Wrap up game '''
-        self.S_ = None
-
-    def save_game(self):
-        ''' Record game history for future purposes '''
         pass
+
+    def game_performance(self):
+        
+        # increased significance for a win / loss the sooner it happens
+        factor = (42-self.moves)/42
+        
+        return factor * self.total_R
+
+
     
     def learn_from_history(self):
         pass

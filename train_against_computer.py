@@ -72,9 +72,10 @@ def main():
     es = ESPatches(config,
                   explorate=50000,
                   fa=agent_fa)
-    agent = th.create_agent(config, 
-                    alg = 'sarsalambda', 
-                    es = es,
+    explorer = FAExplorer(config, es)
+    
+    learner = th.create_agent(config, 
+                    alg = 'sarsalambda',
                     lam = 0.95,
                     fa=agent_fa)
     
@@ -91,34 +92,35 @@ def main():
             dir = "457356_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i500_FBAM__NNconvnetlookab5__"
             agent_fa.load_model(dir, "v3")
             
-        test_agent_fa(FAPlayer(agent_fa), LookaheadABAgent(5))
+        test_agent_fa(FAPlayer(config, agent_fa), LookaheadABAgent(config, 5))
     
     elif True: # If Run episodes
         
-        opponent = LookaheadABAgent(5)
-        test_agent = FAPlayer(agent.fa)
+        opponent = LookaheadABAgent(config, 5)
+        test_agent = FAPlayer(config, agent_fa)
         
-        trainer = EpochTrainer(agent, opponent, 
+        trainer = EpochTrainer(explorer, opponent, learner, 
                                training_data_collector,
                                validation_data_collector,
                                test_agent,
-                               agent.prefix() + opponent.prefix())
+                               explorer.prefix() + "_" + learner.prefix() + 
+                               "_" + opponent.prefix())
         
         if True:
             # To start training afresh 
             agent_fa.initialize_default_net()
         elif False:
             # To start fresh but using existing episode history / exploration
-            dir = "457356_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i500_FBAM__NNconvnetlookab5__"
+            dir = "492186_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i1000_FBAM__NNconvnetlookab5__"
             agent_fa.initialize_default_net()
-            agent.load_episode_history("agent", dir)
+            explorer.load_episode_history("agent", dir)
             es.load_exploration_state(dir)
             opponent.load_episode_history("opponent", dir)
-        elif True:
+        elif False:
             # To start training from where we last left off.
             # i.e., load episodes history, exploration state, and FA model
             dir = "492186_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i1000_FBAM__NNconvnetlookab5__"
-            agent.load_episode_history("agent", dir)
+            explorer.load_episode_history("agent", dir)
             es.load_exploration_state(dir)
             opponent.load_episode_history("opponent", dir)
             agent_fa.load_model(dir, "v3")
@@ -131,10 +133,10 @@ def main():
             validation_data_collector.load_dataset(dir, "final", "v")
             agent_fa.load_model(dir, "v3")
     
-        trainer.train(20, 3, 1)
+        trainer.train(200, 2, 1)
         #trainer.save_to_file()
 
-        agent.store_episode_history("agent")
+        explorer.store_episode_history("agent")
         es.store_exploration_state()
         opponent.store_episode_history("opponent")
         training_data_collector.store_last_dataset("final_t")

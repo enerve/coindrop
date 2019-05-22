@@ -59,6 +59,7 @@ class NN_Bound_FA(ValueFunction):
         self.last_loss = torch.zeros(self.batch_size, 7).cuda()
                 
     def initialize_default_net(self):
+        self.logger.debug("Creating new NN")
         net = nn.Sequential(
             nn.Conv2d(2, 30, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -176,7 +177,7 @@ class NN_Bound_FA(ValueFunction):
             V = self._value(S, actions_list)
             i = torch.argmax(V).item()
             v = V[i].item()
-        return actions_list[i], v 
+        return actions_list[i], v, V.tolist()
 
     def random_action(self, S):
         actions_list = self._valid_actions(S)
