@@ -78,4 +78,3 @@ class FAPlayer(Player):
                               self.debug_buddy_A, self.debug_agent_A)
             self.logger.debug("  for state: \n%s", self.debug_prev_S)
             self.logger.debug("  vals: \n%s", [round(x, 2) for x in self.debug_agent_vals])
-

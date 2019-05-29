@@ -59,17 +59,45 @@ class NN_Bound_FA(ValueFunction):
         self.last_loss = torch.zeros(self.batch_size, 7).cuda()
                 
     def initialize_default_net(self):
-        self.logger.debug("Creating new NN")
+        self.logger.debug("Creating new model")
         net = nn.Sequential(
-            nn.Conv2d(2, 30, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(2, 100, kernel_size=3, stride=1, padding=1),
+            #nn.Dropout2d(p=0.2),
             nn.ReLU(),
-            nn.Conv2d(30, 50, kernel_size=2, stride=1, padding=0),
+            nn.Conv2d(100, 400, kernel_size=2, stride=1, padding=0),
+            #nn.Dropout2d(p=0.2),
             nn.ReLU(),
             Flatten(),
-            nn.Linear(50*6*5, 500),
-            nn.ReLU(),
-            nn.Linear(500, 1),
-            nn.Sigmoid()) #TODO: tanh
+            nn.Linear(400*6*5, 1),
+            #nn.Dropout(p=0.2),
+            #nn.ReLU(),
+            #nn.Linear(500, 500),
+            #nn.Dropout(p=0.2),
+#             nn.ReLU(),
+#             nn.Linear(500, 1),
+            #nn.Dropout(p=0.2),
+            nn.Sigmoid())
+
+#         net = nn.Sequential(
+#             nn.Conv2d(2, 50, kernel_size=3, stride=1, padding=0),
+#             nn.Dropout2d(p=0.2),
+#             nn.ReLU(),
+#             nn.Conv2d(50, 80, kernel_size=2, stride=1, padding=0),
+#             nn.Dropout2d(p=0.2),
+#             nn.ReLU(),
+#             nn.Conv2d(80, 100, kernel_size=2, stride=1, padding=0),
+#             nn.Dropout2d(p=0.2),
+#             nn.ReLU(),
+#             nn.Conv2d(100, 200, kernel_size=2, stride=1, padding=0),
+#             nn.Dropout2d(p=0.2),
+#             nn.ReLU(),
+#             Flatten(),
+#             nn.Linear(200*2*1, 500),
+#             nn.Dropout(p=0.2),
+#             nn.ReLU(),
+#             nn.Linear(500, 1),
+#             nn.Dropout(p=0.2),
+#             nn.Sigmoid()) #TODO: tanh
 
 #         net = nn.Sequential(
 #             nn.Conv2d(2, 100, kernel_size=3, stride=1, padding=1),
@@ -89,6 +117,7 @@ class NN_Bound_FA(ValueFunction):
 
         #self.criterion = nn.MSELoss(reduce=False)
         self.criterion = nn.BCELoss(reduce=False)
+        #self.criterion = nn.BCEWithLogitsLoss(reduce=False)
         
         self.optimizer = optim.Adam(
             net.parameters(),
@@ -144,7 +173,7 @@ class NN_Bound_FA(ValueFunction):
             op1 = output[0][0:l]
             op2 = output[0][l:2*l]
             opavg = (op1+op2)/2
-        return opavg * 2 -1 #TODO: tanh
+        return opavg * 2 - 1 #TODO: tanh
 
     def bound_value(self, B):
         x_list = []
@@ -212,8 +241,11 @@ class NN_Bound_FA(ValueFunction):
             
             t = (t+1.0) / 2     #TODO: tanh
             B = self._bind_action(S, a)
+#             if t < 0.001 or t > 0.999:
+#                 self.logger.debug("%0.2f target for action %d on bound:\n%s", t, a, B)
             for flip in [False, True]:
                 if flip: B = np.flip(B, axis=1).copy()
+                
                 x = self.model.feature(B)
                 
                 steps_history_x.append(x)
@@ -243,6 +275,10 @@ class NN_Bound_FA(ValueFunction):
         VSHT = torch.tensor(val_steps_history_t).to(self.device)
         
         self.logger.debug("Training with %d items...", len(steps_history_x))
+
+#         self.logger.debug("  +1s: %d \t -1s: %d", torch.sum(SHT > 0.99),
+#                           torch.sum(SHT < 0.01))
+
 
         N = len(steps_history_t)
         
@@ -308,6 +344,20 @@ class NN_Bound_FA(ValueFunction):
                     countl = torch.sum(loss > 0, 0).float()
                     mean_error_cost = suml / (countl + 0.01)
                     self.stat_val_error_cost.append(mean_error_cost.cpu().numpy())
+                    
+                    Yo = (outputs > 0.5).float()# - (outputs < 0.5).float()
+                    n_o = torch.sum(Y == Yo)
+                    self.logger.debug(" validation target -ish: %d / %d \t cost %0.2f",
+                                      n_o, Yo.shape[0], self.stat_val_error_cost[-1])
+                    val_o = outputs
+
+                    # Weight parameters
+#                     w_norm_list = []
+#                     for param in self.net.parameters():
+#                         w_norm_list.append(torch.norm(param.data))                        
+                    self.W_norm.append(
+                        [torch.norm(param.data).item() for param in self.net.parameters()])
+
 
                     # Weight parameters
 #                     w_norm_list = []
@@ -325,6 +375,16 @@ class NN_Bound_FA(ValueFunction):
         self.logger.debug("  trained \tN=%s \tE=%0.3f \tVE=%0.3f", N,
                           self.stat_error_cost[-1].mean().item(),
                           self.stat_val_error_cost[-1].mean().item())
+
+        Y = torch.unsqueeze(VSHT, 1)
+        d = torch.abs(Y - val_o)
+        slist = validation_data_collector.get_data()[0]
+        alist = validation_data_collector.get_data()[1]
+        for _ in range(10):
+            i = torch.argmax(d).item()
+            self.logger.debug(" Val: %0.2f instead of %0.2f for action %d on\n%s",
+                              val_o[i], Y[i], alist[i//2], slist[i//2])#, VSHX[i])
+            d[i] = 0
 
         
 
@@ -380,8 +440,12 @@ class NN_Bound_FA(ValueFunction):
 #                   ylim=None)
 
         W = np.asarray(self.W_norm).T
+
+        #labels = ["%s"%c for c in self.net.modules()][1:]
+        
         util.plot(W,
                   range(len(self.W_norm)),
+                  #labels=labels,
                   labels=list(range(len(self.W_norm))),
                   title="Weights L2 norm",
                   pref=pref+"W")

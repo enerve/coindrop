@@ -14,6 +14,7 @@ from function import *
 import trainer_helper as th
 import cmd_line
 import log
+from tester import Tester
 import util
 
 import numpy as np
@@ -60,10 +61,10 @@ def main():
 #                     500, # max_iterations
 #                     coindrop_fe)
     agent_fa = NN_Bound_FA(
-                    0.0005, # alpha ... #4e-5 old alpha without batching
-                    0.5, # regularization constant
+                    0.002, # alpha ... #4e-5 old alpha without batching
+                    0.01, # regularization constant
                     512, # batch_size
-                    150, # max_iterations
+                    15000, # max_iterations
                     fe_elevation)
 
     training_data_collector = FADataCollector(agent_fa)
@@ -81,37 +82,48 @@ def main():
     
     # ------------------ Training -------------------
 
-    if False:
-        if False: #If train model on dataset
-            dir = "847998_Coindrop_DR_q_lambda_eesp_l0.95neural_bound_a0.0005_r0_b512_i500_FBAM__NNconvnetlook5__"
-            training_data_collector.load_dataset(dir, "final", "t")
-            validation_data_collector.load_dataset(dir, "final", "v")
+    opponent = LookaheadABAgent(config, 5)
+    #opponent = FAExplorer(config, es)
+    test_agent = FAPlayer(config, agent_fa)
+
+    tester = Tester(test_agent, opponent)
+
+    if True: # to train/test without exploration and processing
+        if True: # to train new model on dataset
+            dir = "791563_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.002_r0.01_b512_i30000_FFEelv__NNconvnet_lookab5__"
+            agent_fa.initialize_default_net()
+            training_data_collector.load_dataset(dir, "final_t")
+            validation_data_collector.load_dataset(dir, "final_v")
             agent_fa.train(training_data_collector, validation_data_collector)
             agent_fa.report_stats()
-        else: #Load model directly
-            dir = "457356_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i500_FBAM__NNconvnetlookab5__"
+        elif False: # to train existing model on dataset
+            dir = "543562_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.0005_r0.5_b512_i1500_FFEelv__NNconvnet_lookab5__"
+            agent_fa.load_model(dir, "v3")
+            training_data_collector.load_dataset(dir, "final_t")
+            validation_data_collector.load_dataset(dir, "final_v")
+            agent_fa.train(training_data_collector, validation_data_collector)
+            agent_fa.report_stats()
+        else: #If simply load model
+            dir = "543562_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.0005_r0.5_b512_i1500_FFEelv__NNconvnet_lookab5__"
             agent_fa.load_model(dir, "v3")
             
-        test_agent_fa(FAPlayer(config, agent_fa), LookaheadABAgent(config, 5))
+        #tester.run_test(10)
     
     elif True: # If Run episodes
-        
-        opponent = LookaheadABAgent(config, 5)
-        test_agent = FAPlayer(config, agent_fa)
         
         trainer = EpochTrainer(explorer, opponent, learner, 
                                training_data_collector,
                                validation_data_collector,
-                               test_agent,
+                               tester,
                                explorer.prefix() + "_" + learner.prefix() + 
                                "_" + opponent.prefix())
         
         if True:
             # To start training afresh 
             agent_fa.initialize_default_net()
-        elif False:
+        elif True:
             # To start fresh but using existing episode history / exploration
-            dir = "492186_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i1000_FBAM__NNconvnetlookab5__"
+            dir = "543562_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.0005_r0.5_b512_i1500_FFEelv__NNconvnet_lookab5__"
             agent_fa.initialize_default_net()
             explorer.load_episode_history("agent", dir)
             es.load_exploration_state(dir)
@@ -119,7 +131,7 @@ def main():
         elif False:
             # To start training from where we last left off.
             # i.e., load episodes history, exploration state, and FA model
-            dir = "492186_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i1000_FBAM__NNconvnetlookab5__"
+            dir = "543562_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.0005_r0.5_b512_i1500_FFEelv__NNconvnet_lookab5__"
             explorer.load_episode_history("agent", dir)
             es.load_exploration_state(dir)
             opponent.load_episode_history("opponent", dir)
@@ -129,11 +141,11 @@ def main():
             # For single-epoch training/testing.
             # Load last training dataset and model, but not earlier history
             dir = "330041_Coindrop_DR_q_lambda_epat_l0.95neural_a0.0005_r0_b512_i1000_F_NNconvnetlook3__"
-            training_data_collector.load_dataset(dir, "final", "t")
-            validation_data_collector.load_dataset(dir, "final", "v")
+            training_data_collector.load_dataset(dir, "final_t")
+            validation_data_collector.load_dataset(dir, "final_v")
             agent_fa.load_model(dir, "v3")
     
-        trainer.train(200, 2, 1)
+        trainer.train(1000, 10, 1)
         #trainer.save_to_file()
 
         explorer.store_episode_history("agent")
@@ -159,30 +171,6 @@ def main():
         #agent_fa.viz()
         
     
-def test_agent_fa(fa_player, opponent):
-    logger = logging.getLogger()
-    agent_total_R = 0
-    agent_wins = 0
-    agent_losses = 0
-    agent_sum_moves = 0
-    test_runs = 100
-    logger.debug("Testing %d games against %s", test_runs, opponent.prefix())
-    start_time = time.clock()
-    for tep in range(test_runs):
-        game = Game([fa_player, opponent])
-        game.run()
-        agent_total_R += fa_player.game_performance()
-        agent_wins += 1 if fa_player.game_performance() > 0 else 0
-        agent_losses += 1 if fa_player.game_performance() < 0 else 0
-        agent_sum_moves += fa_player.moves
-        if (tep+1) % 100 == 0:
-            logger.debug("   done %d eps in %d secs", tep+1, time.clock() - start_time)
-            start_time = time.clock()
-    logger.debug("#wins: %d / %d" % (agent_wins, test_runs))
-    logger.debug("#loss: %d / %d" % (agent_losses, test_runs))
-    logger.debug("%% score: %0.2f" % (agent_total_R/test_runs * 100))
-    logger.debug("Avg #moves: %0.2f" % (agent_sum_moves/test_runs))
-
 if __name__ == '__main__':
     main()
 

@@ -149,6 +149,7 @@ class Learner:
         util.dump(A, "valuehistory")
 
     def load_hists(self, subdir):
+        # TODO: figure out what exactly we want to store/load
         A = util.load("valuehistory", subdir).tolist()
         self.all_currs, self.all_targets, self.all_deltas = A[0], A[1], A[2]
 

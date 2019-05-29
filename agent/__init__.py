@@ -17,6 +17,8 @@ from .sarsa_lambda_agent import SarsaLambdaAgent
 from .lookahead_agent import LookaheadAgent
 from .lookahead_ab_agent import LookaheadABAgent
 from .random_agent import RandomAgent
+from .fa_player import FAPlayer
+from .fa_explorer import FAExplorer
 
 from .exploration_strategy import ExplorationStrategy
 from .es_depth import ESDepth

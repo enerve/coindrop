@@ -74,13 +74,55 @@ class FADataCollector(object):
  
     def load_dataset(self, subdir, pref=""):
         fname = "dataset_" + pref
-        self.steps_history_state = [s for s in util.load(fname, subdir, suffix="S")]
-        self.steps_history_action = [a for a in util.load(fname, subdir, suffix="A")]
-        self.steps_history_target = [t for t in util.load(fname, subdir, suffix="t")]
+        self.logger.debug("Loading dataset from %s (%s)", fname, subdir)
+        steps_history_state = [s for s in util.load(fname, subdir, suffix="S")]
+        steps_history_action = [a for a in util.load(fname, subdir, suffix="A")]
+        steps_history_target = [t for t in util.load(fname, subdir, suffix="t")]
+        
+        self.logger.debug("Filtering!")
+        self. steps_history_state, self.steps_history_action, self.steps_history_target = [], [], []
+        sum = 0
+        absum = 0
+        for S, a, t in zip(steps_history_state, steps_history_action, steps_history_target): 
+            if True:#t < -0.899 or t > 0.899:
+                #self.logger.debug("%0.2f target for action %d on:\n%s", t, a, S)
+                sum += t
+                absum += 1
+                self.steps_history_state.append(S)
+                self.steps_history_action.append(a)
+                self.steps_history_target.append(t)
+        self.logger.debug("%d sum, out of %d", sum, absum)
+        
         
     def before_update(self, pref=""):
         self.logger.debug("#pos: %d \t #neg: %d", self.pos, self.neg)
 
+    def report_collected_dataset(self):
+        SHT = np.asarray(self.steps_history_target)
+        self.logger.debug("  +1s: %d \t -1s: %d", np.sum(SHT > 0.99),
+                          np.sum(SHT < 0.01))
+        
     def get_data(self):
         return self.steps_history_state, self.steps_history_action, self.steps_history_target
       
+      
+if __name__ == '__main__':
+    import cmd_line
+    import log
+    
+    args = cmd_line.parse_args()
+
+    util.init(args)
+    util.pre_problem = 'Coindrop'
+
+    logger = logging.getLogger()
+    log.configure_logger(logger, "Coindrop")
+    logger.setLevel(logging.DEBUG)
+    
+    dc = FADataCollector(None)
+    dir = "543562_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.0005_r0.5_b512_i1500_FFEelv__NNconvnet_lookab5__"
+    dc.load_dataset(dir, "final_t")
+    
+    
+    
+    

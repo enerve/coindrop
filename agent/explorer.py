@@ -127,6 +127,7 @@ class Explorer(Player):
         util.dump(VEH, fname, "VEH")
  
     def load_episode_history(self, fname, subdir):
+        self.logger.debug("Loading episode history from %s %s", subdir, fname)
         self.episodes_history = [[(s[0], s[1], s[2]) for s in sh]
                                  for sh in util.load(fname, subdir, suffix="EH")]
         self.test_episodes_history = [[(s[0], s[1], s[2]) for s in sh] 

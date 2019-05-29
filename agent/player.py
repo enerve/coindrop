@@ -22,9 +22,12 @@ class Player(object):
         self.total_R += reward
         self.moves = moves
          
+    def _choose_move(self):
+        pass
+         
     def next_move(self):
         ''' Agent's turn. Chooses the next move '''
-        pass
+        return self._choose_move()
 
     def game_over(self):
         ''' Wrap up game '''
