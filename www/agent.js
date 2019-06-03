@@ -14,7 +14,7 @@ Agent.prototype.loadModel = async function() {
 	// create a session
     this.onnxSession = new onnx.InferenceSession();
     // load the ONNX model file
-    await this.onnxSession.loadModel("./986337v3.onnx")
+    await this.onnxSession.loadModel("./model/986337v3.onnx")
 };
     
 Agent.prototype.bestAction = async function(S) {
