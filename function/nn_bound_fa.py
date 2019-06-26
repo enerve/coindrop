@@ -4,6 +4,7 @@ Created on 13 May 2019
 @author: enerve
 '''
 
+import collections
 import numpy as np
 import torch
 import torch.optim as optim
@@ -14,7 +15,7 @@ import logging
 from function.value_function import ValueFunction
 from function.net import Net
 import util
-from .conv_net import Flatten
+from .conv_net import AllSequential, Flatten
 
 class NN_Bound_FA(ValueFunction):
     '''
@@ -53,6 +54,7 @@ class NN_Bound_FA(ValueFunction):
         self.stat_error_cost = []
         self.stat_reg_cost = []
         self.stat_val_error_cost = []
+        self.stat_activations = []
         self.W_norm = []
                 
         self.sids = self._sample_ids(3000, self.batch_size)
@@ -60,23 +62,37 @@ class NN_Bound_FA(ValueFunction):
                 
     def initialize_default_net(self):
         self.logger.debug("Creating new model")
-        net = nn.Sequential(
-            nn.Conv2d(2, 100, kernel_size=3, stride=1, padding=1),
+        A = 100
+        B = 300
+        C = 100
+        D = 50
+        E = 25
+        net = AllSequential(collections.OrderedDict([
+            ('1conv', nn.Conv2d(2, A, kernel_size=4, stride=1, padding=1)),
             #nn.Dropout2d(p=0.2),
-            nn.ReLU(),
-            nn.Conv2d(100, 400, kernel_size=2, stride=1, padding=0),
-            #nn.Dropout2d(p=0.2),
-            nn.ReLU(),
-            Flatten(),
-            nn.Linear(400*6*5, 1),
+            ('1relu', nn.LeakyReLU()),
+            ('1bn', nn.BatchNorm2d(A)),
+            ('2conv', nn.Conv2d(A, B, kernel_size=2, stride=1, padding=0)),
+            #nn.Dropout2d(p=0.5),
+            ('2relu', nn.LeakyReLU()),
+            ('2bn', nn.BatchNorm2d(B)),
+            ('3flatten', Flatten()),
+            ('3lin', nn.Linear(B*5*4, C)),
+            #nn.Dropout(p=0.5),
+            ('3relu', nn.LeakyReLU()),
+            #('3bn', nn.BatchNorm1d(C)),
+            ('4lin', nn.Linear(C, D)),
             #nn.Dropout(p=0.2),
-            #nn.ReLU(),
-            #nn.Linear(500, 500),
+            ('4relu', nn.LeakyReLU()),
+            #('4bn', nn.BatchNorm1d(D)),
+            ('5lin', nn.Linear(D, E)),
             #nn.Dropout(p=0.2),
-#             nn.ReLU(),
-#             nn.Linear(500, 1),
-            #nn.Dropout(p=0.2),
-            nn.Sigmoid())
+            ('5relu', nn.LeakyReLU()),
+            #('5bn', nn.BatchNorm1d(E)),
+            ('6lin', nn.Linear(E, 1)),
+            #('6sigmoid', nn.Sigmoid())
+            #nn.Tanh()
+            ]))
 
 #         net = nn.Sequential(
 #             nn.Conv2d(2, 50, kernel_size=3, stride=1, padding=0),
@@ -97,7 +113,7 @@ class NN_Bound_FA(ValueFunction):
 #             nn.ReLU(),
 #             nn.Linear(500, 1),
 #             nn.Dropout(p=0.2),
-#             nn.Sigmoid()) #TODO: tanh
+#             nn.Sigmoid())
 
 #         net = nn.Sequential(
 #             nn.Conv2d(2, 100, kernel_size=3, stride=1, padding=1),
@@ -108,15 +124,24 @@ class NN_Bound_FA(ValueFunction):
 #             nn.Linear(500, 500),
 #             nn.ReLU(),
 #             nn.Linear(500, 1),
-#             nn.Sigmoid()) #TODO: tanh
+#             nn.Sigmoid())
 
         self.init_net(net)
+
+    def _adjust_output(self, out):
+        return out
+        #return out * 2 - 1
+        
+    def _adjust_target(self, t):
+        return t
+        #return (t+1.0) / 2
 
     def init_net(self, net):        
         net.cuda(self.device)
 
-        #self.criterion = nn.MSELoss(reduce=False)
-        self.criterion = nn.BCELoss(reduce=False)
+        self.criterion = nn.MSELoss(reduce=False)
+        #self.criterion = nn.SmoothL1Loss(reduce=False)
+        #self.criterion = nn.BCELoss(reduce=False)
         #self.criterion = nn.BCEWithLogitsLoss(reduce=False)
         
         self.optimizer = optim.Adam(
@@ -128,6 +153,7 @@ class NN_Bound_FA(ValueFunction):
         self.net = net
         
         self.logger.debug("Net:\n%s", self.net)
+        self.logger.debug("Criterion: %s", self.criterion)
         
     def prefix(self):
         return 'neural_bound_a%s_r%s_b%d_i%d_F%s_NN%s' % (self.alpha, 
@@ -162,18 +188,18 @@ class NN_Bound_FA(ValueFunction):
 #         with torch.no_grad():
 #             XB = torch.stack(x_list).to(self.device)
 #             output = torch.t(self.net(XB))
-#         return output[0] * 2 -1 #TODO: tanh
+#         return self._adjust_output(output[0])
 
     def _bound_value(self, x_list):
         l = len(x_list) // 2
         # Sends all bound actions as a batch to NN
         with torch.no_grad():
             XB = torch.stack(x_list).to(self.device)
-            output = torch.t(self.net(XB))
+            output = torch.t(self.net(XB)[-1])
             op1 = output[0][0:l]
             op2 = output[0][l:2*l]
             opavg = (op1+op2)/2
-        return opavg * 2 - 1 #TODO: tanh
+        return self._adjust_output(opavg)
 
     def bound_value(self, B):
         x_list = []
@@ -239,7 +265,7 @@ class NN_Bound_FA(ValueFunction):
                 self.logger.warning("------ too much to prepare ----------")
                 break
             
-            t = (t+1.0) / 2     #TODO: tanh
+            t = self._adjust_target(t)
             B = self._bind_action(S, a)
 #             if t < 0.001 or t > 0.999:
 #                 self.logger.debug("%0.2f target for action %d on bound:\n%s", t, a, B)
@@ -307,7 +333,7 @@ class NN_Bound_FA(ValueFunction):
             Y = torch.unsqueeze(Y, 1)   # b x 1
             
             # forward
-            outputs = self.net(X)       # b x 1
+            outputs = self.net(X)[-1]       # b x 1
             # loss
             loss = self.criterion(outputs, Y)  # b x 1
             # backward
@@ -337,19 +363,30 @@ class NN_Bound_FA(ValueFunction):
                     # Validation
                     X = VSHX
                     Y = torch.unsqueeze(VSHT, 1)
-                    outputs = self.net(X)       # b x 1
-                    loss = self.criterion(outputs, Y)  # b x 1
+                    outputs = self.net(X)
+                    op_Y = outputs[-1]       # b x 1
+                    loss = self.criterion(op_Y, Y)  # b x 1
                     
                     suml = torch.sum(loss, 0)
                     countl = torch.sum(loss > 0, 0).float()
                     mean_error_cost = suml / (countl + 0.01)
                     self.stat_val_error_cost.append(mean_error_cost.cpu().numpy())
                     
-                    Yo = (outputs > 0.5).float()# - (outputs < 0.5).float()
+                    Yo = (op_Y > 0).float()# - (op_Y < 0.5).float()
+                    Y = (Y > 0).float()
                     n_o = torch.sum(Y == Yo)
                     self.logger.debug(" validation target -ish: %d / %d \t cost %0.2f",
                                       n_o, Yo.shape[0], self.stat_val_error_cost[-1])
-                    val_o = outputs
+                    val_o = op_Y
+
+                    # Dead activations (ReLUs e.g.)
+                    act_list = []
+                    for op in outputs:
+                        activations_on = (op >= 0.000000000001) # b x a
+                        #node_activations = torch.sum(activations_on, 0) > 0 # a
+                        ratio_alive = torch.mean(activations_on.float()).cpu()
+                        act_list.append(ratio_alive)
+                    self.stat_activations.append(act_list)
 
                     # Weight parameters
 #                     w_norm_list = []
@@ -357,15 +394,6 @@ class NN_Bound_FA(ValueFunction):
 #                         w_norm_list.append(torch.norm(param.data))                        
                     self.W_norm.append(
                         [torch.norm(param.data).item() for param in self.net.parameters()])
-
-
-                    # Weight parameters
-#                     w_norm_list = []
-#                     for param in self.net.parameters():
-#                         w_norm_list.append(torch.norm(param.data))                        
-                    self.W_norm.append(
-                        [torch.norm(param.data).item() for param in self.net.parameters()])
-
 
                     #self.live_stats()
 
@@ -376,15 +404,23 @@ class NN_Bound_FA(ValueFunction):
                           self.stat_error_cost[-1].mean().item(),
                           self.stat_val_error_cost[-1].mean().item())
 
-        Y = torch.unsqueeze(VSHT, 1)
-        d = torch.abs(Y - val_o)
-        slist = validation_data_collector.get_data()[0]
-        alist = validation_data_collector.get_data()[1]
-        for _ in range(10):
-            i = torch.argmax(d).item()
-            self.logger.debug(" Val: %0.2f instead of %0.2f for action %d on\n%s",
-                              val_o[i], Y[i], alist[i//2], slist[i//2])#, VSHX[i])
-            d[i] = 0
+        for param in self.net.parameters():
+            self.logger.debug("  W=%0.6f dW=%0.6f    %s", 
+                              torch.mean(torch.abs(param.data)),
+                              torch.mean(torch.abs(param.grad)),
+                              param.shape)
+
+        if False:
+            # Log the worst predictions, for debugging
+            Y = torch.unsqueeze(VSHT, 1)
+            d = torch.abs(Y - val_o)
+            slist = validation_data_collector.get_data()[0]
+            alist = validation_data_collector.get_data()[1]
+            for _ in range(10):
+                i = torch.argmax(d).item()
+                self.logger.debug(" Val: %0.2f instead of %0.2f for action %d on\n%s",
+                                  val_o[i], Y[i], alist[i//2], slist[i//2])#, VSHX[i])
+                d[i] = 0
 
         
 
@@ -427,9 +463,10 @@ class NN_Bound_FA(ValueFunction):
         util.plot(cost,
                   range(num),
                   labels = labels,
-                  title = "NN training/validation cost across actions",
+                  title = "NN training/validation cost across actions", #TODO: not across
                   pref=pref+"cost",
                   ylim=None)
+
 
 #         avgcost = np.stack([n_cost.mean(axis=0), n_v_cost.mean(axis=0)], axis=0)
 #         util.plot(avgcost,
@@ -450,6 +487,26 @@ class NN_Bound_FA(ValueFunction):
                   title="Weights L2 norm",
                   pref=pref+"W")
 
+        A = np.asarray(self.stat_activations).T
+        util.plot(A,
+                  range(len(self.stat_activations)),
+                  #labels=labels,
+                  labels=self.net.get_names(),
+                  title="Ratio of nodes alive",
+                  pref=pref+"A")
+
+        relu_list = []
+        for key, acts in zip(self.net.get_names(), A):
+            if 'relu' in key:
+                relu_list.append(acts)
+        Ar = np.asarray(relu_list)
+        util.plot(Ar,
+                  range(len(self.stat_activations)),
+                  #labels=labels,
+                  labels=range(len(relu_list)),
+                  title="Ratio of ReLU nodes alive",
+                  pref=pref+"Ar")
+
     def live_stats(self):
         num = len(self.stat_error_cost[1:])
         
@@ -467,7 +524,10 @@ class NN_Bound_FA(ValueFunction):
                   live=True)
         
     def save_model(self, pref=""):
+        self.logger.debug("Saving model")
         util.torch_save(self.net, "boundNN_" + pref)
+        self.logger.debug("Saving model state dict")
+        util.torch_save(self.net.state_dict(), "boundNN_sd_" + pref)
 
     def load_model(self, load_subdir, pref=""):
         fname = "boundNN_" + pref
@@ -475,6 +535,13 @@ class NN_Bound_FA(ValueFunction):
         net = util.torch_load(fname, load_subdir)
         net.eval()
         self.init_net(net)
+
+    def load_model_params(self, load_subdir, pref=""):
+        ''' Called to load NN weights. Assumes default NN has been initialized '''
+        fname = "boundNN_sd_" + pref
+        self.logger.debug("Loading model %s", fname)
+        self.net.load_state_dict(util.torch_load(fname, load_subdir))
+        self.net.eval()
 
     def export_to_onnx(self, fname):
         dummy_state = np.random.randint(-1, 2, (6, 7))
@@ -487,7 +554,7 @@ class NN_Bound_FA(ValueFunction):
         from torchviz import make_dot
         dummy_state = np.random.randint(-1, 2, (6, 7))
         dummy_X = self.model.feature(dummy_state).unsqueeze(0)
-        out = self.net(dummy_X)
+        out = self.net(dummy_X)[-1]
         dot = make_dot(out, params=dict(self.net.named_parameters()))
         dot.format = 'svg'
         dot.render()

@@ -54,6 +54,11 @@ def main():
     bound_action_model = BoundActionModel(config)
     fe_elevation = FEElevation(config)
     
+    NUM_NEW_EPISODES = 1000
+    NUM_EPOCHS = 2
+    
+    logger.debug("NUM_NEW_EPISODES=%d\t NUM_EPOCHS=%d", NUM_NEW_EPISODES, NUM_EPOCHS)
+    
 #     agent_fa = NN_FA(
 #                     0.0005, # alpha ... #4e-5 old alpha without batching
 #                     0, # regularization constant
@@ -62,9 +67,9 @@ def main():
 #                     coindrop_fe)
     agent_fa = NN_Bound_FA(
                     0.002, # alpha ... #4e-5 old alpha without batching
-                    0.01, # regularization constant
+                    0.001, # regularization constant
                     512, # batch_size
-                    15000, # max_iterations
+                    200000, # max_iterations
                     fe_elevation)
 
     training_data_collector = FADataCollector(agent_fa)
@@ -88,8 +93,10 @@ def main():
 
     tester = Tester(test_agent, opponent)
 
-    if True: # to train/test without exploration and processing
-        if True: # to train new model on dataset
+    if False: # to train/test without exploration and processing
+        util.pre_agent_alg = agent_fa.prefix()
+
+        if False: # to train new model on dataset
             dir = "791563_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.002_r0.01_b512_i30000_FFEelv__NNconvnet_lookab5__"
             agent_fa.initialize_default_net()
             training_data_collector.load_dataset(dir, "final_t")
@@ -103,11 +110,16 @@ def main():
             validation_data_collector.load_dataset(dir, "final_v")
             agent_fa.train(training_data_collector, validation_data_collector)
             agent_fa.report_stats()
-        else: #If simply load model
-            dir = "543562_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.0005_r0.5_b512_i1500_FFEelv__NNconvnet_lookab5__"
+        elif True: #If load model params
+            agent_fa.initialize_default_net()
+            dir = "569160_Coindrop_DR_neural_bound_a0.002_r0.01_b512_i400_FFEelv__NNconvnet__"
+            agent_fa.load_model_params(dir, "v3")
+        elif False: #If load model architecture (and classes)
+            dir = "569160_Coindrop_DR_neural_bound_a0.002_r0.01_b512_i400_FFEelv__NNconvnet__"
             agent_fa.load_model(dir, "v3")
             
-        #tester.run_test(10)
+        #agent_fa.save_model("v3")
+        tester.run_test(10)
     
     elif True: # If Run episodes
         
@@ -118,12 +130,12 @@ def main():
                                explorer.prefix() + "_" + learner.prefix() + 
                                "_" + opponent.prefix())
         
-        if True:
+        if False:
             # To start training afresh 
             agent_fa.initialize_default_net()
         elif True:
             # To start fresh but using existing episode history / exploration
-            dir = "543562_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.0005_r0.5_b512_i1500_FFEelv__NNconvnet_lookab5__"
+            dir = "791563_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.002_r0.01_b512_i30000_FFEelv__NNconvnet_lookab5__"
             agent_fa.initialize_default_net()
             explorer.load_episode_history("agent", dir)
             es.load_exploration_state(dir)
@@ -131,12 +143,14 @@ def main():
         elif False:
             # To start training from where we last left off.
             # i.e., load episodes history, exploration state, and FA model
-            dir = "543562_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.0005_r0.5_b512_i1500_FFEelv__NNconvnet_lookab5__"
+            #dir = "831321_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.002_r0.01_b512_i25000_FFEelv__NNconvnet_lookab5__"
+            #dir = "789016_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.002_r0.01_b512_i8000_FFEelv__NNconvnet_lookab5__"
+            dir = "178719_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.002_r0.001_b512_i150000_FFEelv__NNconvnet_lookab5__"
             explorer.load_episode_history("agent", dir)
             es.load_exploration_state(dir)
             opponent.load_episode_history("opponent", dir)
             agent_fa.load_model(dir, "v3")
-            trainer.load_stats(dir)
+            #trainer.load_stats(dir)
         elif False:
             # For single-epoch training/testing.
             # Load last training dataset and model, but not earlier history
@@ -145,7 +159,7 @@ def main():
             validation_data_collector.load_dataset(dir, "final_v")
             agent_fa.load_model(dir, "v3")
     
-        trainer.train(1000, 10, 1)
+        trainer.train(NUM_NEW_EPISODES, NUM_EPOCHS, 1)
         #trainer.save_to_file()
 
         explorer.store_episode_history("agent")

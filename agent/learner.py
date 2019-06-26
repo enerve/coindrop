@@ -83,6 +83,7 @@ class Learner:
         npd = np.array(self.deltas)
         if source_name not in self.stats_abs_delta:
             self.stats_abs_delta[source_name] = []
+        if source_name not in self.stats_deltas:
             self.stats_deltas[source_name] = []
             self.stats_currs[source_name] = []
             self.stats_targets[source_name] = []
@@ -90,6 +91,13 @@ class Learner:
         self.stats_deltas[source_name].append(self.deltas)
         self.stats_currs[source_name].append(self.currs)
         self.stats_targets[source_name].append(self.targets)
+        
+        self.logger.debug("Currs:\n%s", self.currs[0:200])
+        self.logger.debug("Targets:\n%s", self.targets[0:200])
+        self.logger.debug("CurrMean:   %f", np.array(self.currs).mean())
+        self.logger.debug("TargetMean: %f", np.array(self.targets).mean())
+        
+        
         #self.logger.debug('  sumdelta: %0.4f', self.sum_delta)
         self.logger.debug('  delta   : %0.2f <%0.2f>', np.mean(np.abs(npd)), np.var(npd))
         #self.logger.debug('  wins/losses (total): %d/%d (%d)', self.num_wins,
@@ -108,7 +116,7 @@ class Learner:
     def plot_last_hists(self, source_name):
         # TODO: maybe move this to DataCollector instead
         
-        npc = np.array(self.stats_currs[source_name[-1]])
+        npc = np.array(self.stats_currs[source_name][-1])
         util.hist(npc, 100, (-2, 2),
                   "%s curr value" % source_name,
                   "currhist" + source_name)

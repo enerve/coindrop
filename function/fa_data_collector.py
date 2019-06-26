@@ -43,6 +43,9 @@ class FADataCollector(object):
     def record(self, state, action, target):
         ''' Record incoming data rows '''
 
+#         if target >= -0.9 and target <= 0.9:
+#             return
+
         if self.ireplay is not None:
             # Replaying the same datapoints but recording new targets
             # Confirm it's an exact repeat
@@ -84,7 +87,7 @@ class FADataCollector(object):
         sum = 0
         absum = 0
         for S, a, t in zip(steps_history_state, steps_history_action, steps_history_target): 
-            if True:#t < -0.899 or t > 0.899:
+            if t < -0.899 or t > 0.899:
                 #self.logger.debug("%0.2f target for action %d on:\n%s", t, a, S)
                 sum += t
                 absum += 1

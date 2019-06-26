@@ -40,8 +40,8 @@ class EpochTrainer:
         
         total_episodes = num_episodes_per_epoch * num_epochs * num_explorations
            
-        self.logger.debug("Starting for %d expls x %d epochs x %d episodes",
-                          num_explorations, num_epochs, num_episodes_per_epoch)
+        self.logger.debug("Starting for %d episodes x %d epochs x %d expls",
+                          num_episodes_per_epoch, num_epochs, num_explorations)
         start_time = time.clock()
         
         totaltime_explore = 0
@@ -136,7 +136,7 @@ class EpochTrainer:
                 totaltime_train += (time.clock() - start_training_time)
                 
                 # Sacrifice some data for the sake of GPU memory
-                if len(self.explorer.get_episodes_history()) >= 20000:
+                if len(self.explorer.get_episodes_history()) >= 15000:#20000
                     self.logger.debug("Before: %d, %d",
                                       len(self.explorer.get_episodes_history()),
                                       len(self.opponent.get_episodes_history()))
@@ -146,7 +146,7 @@ class EpochTrainer:
                                       len(self.explorer.get_episodes_history()),
                                       len(self.opponent.get_episodes_history()))
                 
-                self.tester.run_test(50)
+                #self.tester.run_test(50)
 
                 self.logger.debug("  Clock: %d seconds", time.clock() - start_time)
 
