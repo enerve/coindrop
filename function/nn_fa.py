@@ -116,13 +116,13 @@ class NN_FA(ValueFunction):
         return self.feature_eng.random_action(state)
 
 
-    def update(self, data_collector):
+    def update(self, training_data_collector, validation_data_collector):
         ''' Updates the value function model based on data collected since
             the last update '''
 
-        data_collector.before_update()
+        training_data_collector.before_update()
 
-        self.train(data_collector)
+        self.train(training_data_collector, validation_data_collector)
         self.test()
 
     def _prepare_data(self, steps_history_state, steps_history_action,
@@ -182,13 +182,13 @@ class NN_FA(ValueFunction):
         ids = (l * ids.uniform_()).long()
         return ids
 
-    def train(self, data_collector):
+    def train(self, training_data_collector, validation_data_collector):
         self.logger.debug("Preparing training data--")
         steps_history_x, steps_history_t, steps_history_m = \
-            self._prepare_data(*data_collector.get_training_data())
+            self._prepare_data(*training_data_collector.get_data())
         self.logger.debug("Preparing validation data--")
         val_steps_history_x, val_steps_history_t, val_steps_history_m = \
-            self._prepare_data(*data_collector.get_validation_data())
+            self._prepare_data(*validation_data_collector.get_data())
         
         SHX = torch.stack(steps_history_x).to(self.device)
         SHT = torch.tensor(steps_history_t).to(self.device)
