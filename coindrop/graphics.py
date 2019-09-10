@@ -4,8 +4,8 @@ Created on 14 May 2019
 @author: enerve
 '''
 
-import cmd_line
-import util
+from really import cmd_line
+from really import util
 import numpy as np
 import math
 

@@ -6,9 +6,9 @@ Created on Apr 29, 2019
 
 import logging
 
-from .learner import Learner
+from really.learner import Learner
 
-class QLambdaAgent(Learner):
+class QLambdaLearner(Learner):
     '''
     An observer that uses Q(λ) to generate training data from episodes
     '''

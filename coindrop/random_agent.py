@@ -7,9 +7,9 @@ Created on Apr 28, 2019
 import logging
 import random
 
-from .player import Player
+from really.agent import Agent
 
-class RandomAgent(Player):
+class RandomAgent(Agent):
     '''
     
     '''
@@ -31,7 +31,7 @@ class RandomAgent(Player):
         self.S = initial_state
         self.total_R = 0
         
-    def see_move(self, reward, new_state, h, moves=0):
+    def see_outcome(self, reward, new_state, h, moves=0):
         ''' Observe the effects on this agent of an action taken - possibly by
             another agent.
             reward Reward earned by this agent

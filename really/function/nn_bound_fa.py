@@ -5,16 +5,15 @@ Created on 13 May 2019
 '''
 
 import collections
+import logging
 import numpy as np
 import torch
 import torch.optim as optim
 import torch.nn as nn
 import random
 
-import logging
-from function.value_function import ValueFunction
-from function.net import Net
-import util
+from .value_function import ValueFunction
+from really import util
 from .conv_net import AllSequential, Flatten
 
 class NN_Bound_FA(ValueFunction):
@@ -223,6 +222,7 @@ class NN_Bound_FA(ValueFunction):
         output = self._value(S, [action])
         return output[0].item()
 
+    # TODO: move to coindrop
     def _valid_actions(self, S):
         return np.nonzero(S[6-1] == 0)[0]
 
@@ -234,6 +234,7 @@ class NN_Bound_FA(ValueFunction):
             v = V[i].item()
         return actions_list[i], v, V.tolist()
 
+    # TODO: maybe just move this to EexplorationStrategy
     def random_action(self, S):
         actions_list = self._valid_actions(S)
         return random.choice(actions_list)

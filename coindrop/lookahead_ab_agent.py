@@ -4,12 +4,13 @@ Created on May 14, 2019
 @author: enerve
 '''
 
-import mechanics
+from coindrop import mechanics
 
 import logging
+import numpy as np
 import random
 
-from .explorer import Explorer
+from really.agent.explorer import Explorer
 
 class LookaheadABAgent(Explorer):
     '''
@@ -23,15 +24,30 @@ class LookaheadABAgent(Explorer):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.depth = depth
+        
+        self.cols = config.NUM_COLUMNS
+        self.rows = config.NUM_ROWS
 
     def prefix(self):
         pref = "lookab%d" % self.depth
         return pref
 
     # ---------------- Single game ---------------
+    
+    def init_episode(self, initial_state):
+        super().init_episode(initial_state)
+        
+        self.h = np.zeros(7, dtype=np.int8)
          
-    def _choose_move(self):
-        ''' Agent's turn. Chooses the next move '''
+    def _choose_action(self):
+        ''' Agent's turn. Chooses the next action '''
+
+        # Update h based on S
+        # Assumption: At most one coin has been played since last time
+        for x in range(self.cols):
+            if self.h[x] < self.rows and self.S[self.h[x], x] != 0:
+                self.h[x] += 1
+                break
 
 #         _, options = self._best_move2(self.depth, coin=1, return_options=True)
         _, options = self._best_move(self.depth, coin=1, alpha=-1000, beta=1000,
@@ -39,6 +55,10 @@ class LookaheadABAgent(Explorer):
         # choose randomly from best options
         idx = random.randint(0, len(options)-1)
         A = options[idx]
+
+        # Update h based on A
+        self.h[A] += 1
+        
         return A
 
     def _best_move(self, depth, coin, alpha, beta, return_options=False):

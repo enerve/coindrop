@@ -29,21 +29,22 @@ class FAExplorer(Explorer):
         es_prefix = self.exploration_strategy.prefix()
         return "e%s" % es_prefix
 
-    # ---------------- Single game ---------------
+    # ---------------- Single episode ---------------
 
-    def _choose_move(self):
-        ''' Agent's turn. Chooses the next move '''
+    def _choose_action(self):
+        ''' Agent to choose the next action '''
         # Choose action on-policy
         A = self.exploration_strategy.pick_action(self.S, self.moves)
         return A
         
     # ----------- Stats -----------
 
-    def collect_stats(self, ep, num_episodes):
+    def collect_stats(self, episode, ep, num_episodes):
         super().collect_stats(ep, num_episodes)
 
-        if (ep+1)% 100 == 0:
-            self.logger.debug("Recent epsilon: %f" % self.exploration_strategy.recent_epsilon)
+        self.exploration_strategy.collect_stats(ep)
 
     def report_stats(self, pref):
         super().report_stats(pref)
+
+        self.exploration_strategy.report_stats(pref)

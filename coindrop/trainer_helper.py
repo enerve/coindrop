@@ -4,8 +4,8 @@ Created on 8 Mar 2019
 @author: enerve
 '''
 
-from agent import *
-from function import *
+from really.learner import *
+from really.function import *
 from collections import namedtuple
 
 ALG = {
@@ -15,16 +15,10 @@ ALG = {
         'sarsalambda' : 3
     }
 
-FA = {
-        'qtable' : 0,
-        'poly' : 1,
-        'multi' : 2,
-        'nn' : 3
-    }
-
 CONFIG = namedtuple("Config",
     "NUM_ROWS, NUM_COLUMNS")
 
+# TODO: This is too hidden
 GAMMA = 0.9
 
 def create_agent(config, alg, lam, fa):
@@ -32,20 +26,20 @@ def create_agent(config, alg, lam, fa):
 
 def create_agent_i(config, i_alg, lam, fa):
     if i_alg == 0:    
-        agent = QAgent(config,
+        agent = QLearner(config,
                         GAMMA, # gamma
                         fa)
     elif i_alg == 1:    
-        agent = SarsaAgent(config,
+        agent = SarsaLearner(config,
                         GAMMA, # gamma
                         fa)
     elif i_alg == 2:
-        agent = QLambdaAgent(config,
+        agent = QLambdaLearner(config,
                         lam, #lambda
                         GAMMA, # gamma
                         fa)
     elif i_alg == 3:
-        agent = SarsaLambdaAgent(config,
+        agent = SarsaLambdaLearner(config,
                         lam, #lambda
                         GAMMA, # gamma
                         fa)

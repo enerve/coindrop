@@ -4,10 +4,6 @@ Created on 30 Apr 2019
 @author: enerve
 '''
 
-import numpy as np
-import random
-
-
 class ExplorationStrategy(object):
     '''
     classdocs
@@ -28,4 +24,10 @@ class ExplorationStrategy(object):
         pass
     
     def load_exploration_state(self, subdir, pref=""):
+        pass
+    
+    def collect_stats(self, ep):
+        pass
+    
+    def report_stats(self, ep):
         pass

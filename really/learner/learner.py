@@ -5,7 +5,7 @@ Created on May 22, 2019
 '''
 
 import logging
-import util
+from really import util
 
 import numpy as np
 
@@ -23,8 +23,9 @@ class Learner:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
 
-        self.num_columns = config.NUM_COLUMNS
-        self.max_moves = config.NUM_COLUMNS * config.NUM_ROWS
+        #self.num_columns = config.NUM_COLUMNS
+        # TODO: this is a hack for the sake of eligibility trace length:-
+        self.max_moves = 100 #config.NUM_COLUMNS * config.NUM_ROWS
         
         # stats
         self.stats_abs_delta = {}
@@ -92,10 +93,10 @@ class Learner:
         self.stats_currs[source_name].append(self.currs)
         self.stats_targets[source_name].append(self.targets)
         
-        self.logger.debug("Currs:\n%s", self.currs[0:200])
-        self.logger.debug("Targets:\n%s", self.targets[0:200])
-        self.logger.debug("CurrMean:   %f", np.array(self.currs).mean())
-        self.logger.debug("TargetMean: %f", np.array(self.targets).mean())
+#         self.logger.debug("Currs:\n%s", self.currs[0:200])
+#         self.logger.debug("Targets:\n%s", self.targets[0:200])
+#         self.logger.debug("CurrMean:   %f", np.array(self.currs).mean())
+#         self.logger.debug("TargetMean: %f", np.array(self.targets).mean())
         
         
         #self.logger.debug('  sumdelta: %0.4f', self.sum_delta)
@@ -135,11 +136,15 @@ class Learner:
         # TODO: maybe move this to DataCollector instead
 
         maxlen = len(self.stats_currs[source_name][0])
-        util.save_hist_animation(self.stats_currs[source_name], 100, (-1.2, 1.2),
+        # TODO: Thsi is racecar-specific.
+        rng_min = -400 #-1.2
+        rng_max = 400  #1.2
+        
+        util.save_hist_animation(self.stats_currs[source_name], 100, (rng_min, rng_max),
                                  maxlen, "curr value", "currhist")
-        util.save_hist_animation(self.stats_targets[source_name], 100, (-1.2, 1.2),
+        util.save_hist_animation(self.stats_targets[source_name], 100, (rng_min, rng_max),
                                  maxlen, "targets", "targethist")
-        util.save_hist_animation(self.stats_deltas[source_name], 100, (-1.2, 1.2),
+        util.save_hist_animation(self.stats_deltas[source_name], 100, (rng_min, rng_max),
                                  maxlen, "delta", "deltahist")
 
     def save_hists(self, sources):

@@ -5,7 +5,7 @@ Created on 13 May 2019
 '''
 
 import logging
-import util
+from really import util
 import numpy as np
 
 class FADataCollector(object):
@@ -87,6 +87,7 @@ class FADataCollector(object):
         sum = 0
         absum = 0
         for S, a, t in zip(steps_history_state, steps_history_action, steps_history_target): 
+            #TODO: move to coindrop
             if t < -0.899 or t > 0.899:
                 #self.logger.debug("%0.2f target for action %d on:\n%s", t, a, S)
                 sum += t
@@ -98,20 +99,23 @@ class FADataCollector(object):
         
         
     def before_update(self, pref=""):
-        self.logger.debug("#pos: %d \t #neg: %d", self.pos, self.neg)
+        #TODO: move to coindrop..
+        #self.logger.debug("#pos: %d \t #neg: %d", self.pos, self.neg)
+        pass
 
     def report_collected_dataset(self):
         SHT = np.asarray(self.steps_history_target)
-        self.logger.debug("  +1s: %d \t -1s: %d", np.sum(SHT > 0.99),
-                          np.sum(SHT < 0.01))
-        
+        #TODO: move to coindrop
+#         self.logger.debug("  +1s: %d \t -1s: %d", np.sum(SHT > 0.99),
+#                           np.sum(SHT < 0.01))
+
     def get_data(self):
         return self.steps_history_state, self.steps_history_action, self.steps_history_target
       
       
 if __name__ == '__main__':
-    import cmd_line
-    import log
+    from really import cmd_line
+    from really import log
     
     args = cmd_line.parse_args()
 

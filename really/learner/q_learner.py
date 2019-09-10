@@ -8,7 +8,7 @@ import logging
 
 from .learner import Learner
 
-class QAgent(Learner):
+class QLearner(Learner):
     '''
     An observer that uses Q-alg to generate training data from episodes
     '''

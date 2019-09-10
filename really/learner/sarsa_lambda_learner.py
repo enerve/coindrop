@@ -6,9 +6,9 @@ Created on May 15, 2019
 
 import logging
 
-from .learner import Learner
+from really.learner import Learner
 
-class SarsaLambdaAgent(Learner):
+class SarsaLambdaLearner(Learner):
     '''
     An observer that uses Sarsa(λ) to generate training data from episodes
     '''

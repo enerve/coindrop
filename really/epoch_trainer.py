@@ -5,26 +5,24 @@ Created on Nov 6, 2018
 '''
 
 import logging
-import numpy as np
 import time
-import util
-from agent import FAPlayer
-from game import Game
-import random
+
+from really import util
 
 class EpochTrainer:
     ''' A class that helps train the RL agent in stages, collecting episode
         history for an epoch and then training on that data.
     '''
 
-    def __init__(self, explorer, opponent, learner, training_data_collector,
-                 validation_data_collector, tester, prefix):
-        self.explorer = explorer
-        self.opponent = opponent
+    def __init__(self, episode_factory, explorer_list, learner, training_data_collector,
+                 validation_data_collector, evaluator, prefix):
+        self.episode_factory = episode_factory
+        self.explorer_list = explorer_list #TODO: dict with keys
+        self.explorer = explorer_list[0]
         self.learner = learner
         self.training_data_collector = training_data_collector
         self.validation_data_collector = validation_data_collector
-        self.tester = tester
+        self.evaluator = evaluator
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
     
@@ -50,36 +48,33 @@ class EpochTrainer:
         
         #self.end_states = {}
 
+        # Evaluate starting performance
+        self.evaluator.evaluate(0)
+
         ep = ep_s = self.ep
         for expl in range(num_explorations):
             for epoch in range(num_epochs):
                 # In each epoch, we first collect experience, then (re)train FA
                 self.logger.debug("====== Expl %d epoch %d =====", expl, epoch)
                 
-                best_R = -10000
-                
                 start_explore_time = time.clock()
                 
                 if not debug_run_first_epoch_data_only or epoch == 0:
                     # Run games to collect new data               
                     for ep_ in range(num_episodes_per_epoch):
-                        # Create game environment for a single game
-                        if random.random() < 0.5:
-                            player_list = [self.explorer, self.opponent]
-                        else:
-                            player_list = [self.opponent, self.explorer]
-                        game = Game(player_list)
+                        # Create racecar_episode for a single episode
+                        episode = self.episode_factory.new_episode(self.explorer_list)
                         
-                        S = game.run()
+                        episode.run()
     
                         if ep_ % 10 == 0:
                             # Save for validation
-                            self.explorer.save_game_for_testing()
-                            self.opponent.save_game_for_testing()
+                            self.explorer.save_episode_for_testing()
+                            #TODO: self.opponent.save_game_for_testing()
                         else:
                             # Use for training
-                            self.explorer.save_game_for_training()
-                            self.opponent.save_game_for_training()
+                            self.explorer.save_episode_for_training()
+                            #TODO: self.opponent.save_game_for_training()
     
                         #stS = np.array2string(S, separator='')
                         #if stS in self.end_states:
@@ -87,16 +82,19 @@ class EpochTrainer:
                         #else:
                         #    self.end_states[stS] = 1
     
-                        self.explorer.collect_stats(ep, total_episodes)
-                        self.opponent.collect_stats(ep, total_episodes)
+                        self.explorer.collect_stats(episode,
+                                                    ep, total_episodes)
+                        #TODO: self.opponent.collect_stats(episode, ep, total_episodes)
                 
-                        if util.checkpoint_reached(ep, 100):
+                        if util.checkpoint_reached(ep, 1000):
                             self.stat_e_1000.append(ep)
                             self.logger.debug("Ep %d ", ep)
-                            
+
                         ep += 1
+
                     self.training_data_collector.reset_dataset()
                     self.validation_data_collector.reset_dataset()
+
                 else:
                     # Reuse existing data
                     self.training_data_collector.replay_dataset()
@@ -106,15 +104,15 @@ class EpochTrainer:
                 totaltime_explore += (start_process_time - start_explore_time)
                 
                 self.logger.debug("-------- processing ----------")
-                self.logger.debug("Learning from agent history")
+                self.logger.debug("Learning from explorer history")
                 self.learner.process(self.explorer.get_episodes_history(),
                                      self.training_data_collector,
-                                     "agent train")
+                                     "explorer train")
                 self.training_data_collector.report_collected_dataset()
                 #self.learner.plot_last_hists()
                 self.learner.process(self.explorer.get_test_episodes_history(),
                                      self.validation_data_collector,
-                                     "agent val")
+                                     "explorer val")
 
 #                 self.logger.debug("Learning from opponent history")
 #                 self.learner.process(self.opponent.get_episodes_history(),
@@ -137,16 +135,15 @@ class EpochTrainer:
                 
                 # Sacrifice some data for the sake of GPU memory
                 if len(self.explorer.get_episodes_history()) >= 15000:#20000
-                    self.logger.debug("Before: %d, %d",
-                                      len(self.explorer.get_episodes_history()),
-                                      len(self.opponent.get_episodes_history()))
+                    #TODO: process opponent as well
+                    self.logger.debug("Before: %d",
+                                      len(self.explorer.get_episodes_history()))
                     self.explorer.decimate_history()
-                    self.opponent.decimate_history()
-                    self.logger.debug("After: %d, %d", 
-                                      len(self.explorer.get_episodes_history()),
-                                      len(self.opponent.get_episodes_history()))
+                    #self.opponent.decimate_history()
+                    self.logger.debug("After: %d", 
+                                      len(self.explorer.get_episodes_history()))
                 
-                #self.tester.run_test(50)
+                self.evaluator.evaluate(ep)
 
                 self.logger.debug("  Clock: %d seconds", time.clock() - start_time)
 
@@ -225,22 +222,27 @@ class EpochTrainer:
     
     def save_stats(self, pref=""):
         self.explorer.save_stats(pref="a_" + pref)
-        self.opponent.save_stats(pref="o_" + pref)
+        #TODO: self.opponent.save_stats(pref="o_" + pref)
         self.learner.save_stats(pref="l_" + pref)
+        self.evaluator.save_stats(pref="t_" + pref)
 
-        self.learner.save_hists(["agent train"])#, "opponent train"])
-        self.learner.write_hist_animation("agent train")
+        self.learner.save_hists(["explorer train"])#TODO: , "opponent train"])
+        self.learner.write_hist_animation("explorer train")
+        
         
     def load_stats(self, subdir, pref=""):
         self.logger.debug("Loading stats...")
 
         self.explorer.load_stats(subdir, pref="a_" + pref)
-        self.opponent.load_stats(subdir, pref="o_" + pref)
+        #TODO: self.opponent.load_stats(subdir, pref="o_" + pref)
         self.learner.load_stats(subdir, pref="l_" + pref)
+        self.evaluator.load_stats(subdir, pref="t_" + pref)
     
         #self.learner.load_hists(subdir)
     
     def report_stats(self, pref=""):
         self.explorer.report_stats(pref="a_" + pref)
-        self.opponent.report_stats(pref="o_" + pref)
+        #TODO: self.opponent.report_stats(pref="o_" + pref)
         self.learner.report_stats(pref="l_" + pref)
+        self.evaluator.report_stats(pref="t_" + pref)
+        

@@ -5,13 +5,13 @@ Created on May 15, 2019
 '''
 
 import logging
-import util
+from really import util
 
 import numpy as np
 
-from .player import Player
+from .agent import Agent
 
-class Explorer(Player):
+class Explorer(Agent):
     '''
     Base class for a player that records its experience for future use.
     '''
@@ -26,84 +26,84 @@ class Explorer(Player):
         self.test_episodes_history = []
         
         # stats
-        self.stats_R = []
-        self.sum_total_R = 0
+        self.stats_G = []
+        self.sum_G = 0
         self.sum_played = 0
 
-    # ---------------- Single game ---------------
+    # ---------------- Single episode ---------------
     
     def prefix(self):
         pass
 
-    def init_game(self, initial_state, initial_heights):
-        super().init_game(initial_state, initial_heights)
+    def init_episode(self, initial_state):
+        super().init_episode(initial_state)
         
         self.S = np.copy(initial_state)
         self.R = 0
-        self.h = initial_heights
         self.steps_history = []
         
-    def see_move(self, reward, new_state, new_heights, moves=None):
+    def see_outcome(self, reward, new_state, moves=None):
         ''' Observe the effects on this player of an action taken (possibly by
             another player.)
             reward Reward earned by this player for its last move
         '''
-        super().see_move(reward, new_state, new_heights, moves)
+        super().see_outcome(reward, new_state, moves)
         self.R += reward
         self.S = np.copy(new_state)
 
-    def next_move(self):
-        ''' Explorer's turn. Chooses the next move '''
-        A = self._choose_move() # Implemented by subclasses
+    def next_action(self):
+        ''' Explorer to choose the next action '''
+        A = self._choose_action() # Implemented by subclasses
 
-        # Record results R, S of my previous move, and the current move A.
-        # (The R of the very first move is irrelevant and is later ignored.)
+        # Record results R, S of my previous action, and the current action A.
+        # (The R of the very first action is irrelevant and is later ignored.)
         self.steps_history.append((self.R, self.S, A))
         self.R = 0  # prepare to collect rewards
         
         return A
 
-    def game_over(self):
-        ''' Wrap up game  '''
+    def episode_over(self):
+        ''' Wrap up episode '''
 
-        # Record results of game end
+        # Record results of episode end
         self.steps_history.append((self.R, None, None))
         
-    def save_game_for_training(self):
+    def save_episode_for_training(self):
         self.episodes_history.append(self.steps_history)
 
-    def save_game_for_testing(self):
+    def save_episode_for_testing(self):
         self.test_episodes_history.append(self.steps_history)
 
     # ----------- Stats -----------
 
-    def collect_stats(self, ep, num_episodes):
+    def collect_stats(self, ep, total_episodes):
         if (ep+1)% 100 == 0:
-            self.logger.debug("  avg R: %d/%d" % (self.sum_total_R, self.sum_played))
-            self.stats_R.append(self.sum_total_R / self.sum_played)
-            self.sum_total_R = 0
+            #self.logger.debug("  avg G: %d (%d)" % (self.sum_G / self.sum_played, self.sum_played))
+            self.stats_G.append(self.sum_G / self.sum_played)
+            self.sum_G = 0
             self.sum_played = 0
             self.live_stats()
         
-        self.sum_total_R += self.total_R
+        self.sum_G += self.G
         self.sum_played += 1 
+        
+        
 
     def save_stats(self, pref=""):
-        util.dump(np.asarray(self.stats_R, dtype=np.float), "statsR", pref)
+        util.dump(np.asarray(self.stats_G, dtype=np.float), "statsG", pref)
 
     def load_stats(self, subdir, pref=""):
-        self.stats_R = util.load("statsR", subdir, pref).tolist()
+        self.stats_G = util.load("statsG", subdir, pref).tolist()
 
     def report_stats(self, pref):
-#         util.plot([self.stats_R],
-#                   range(len(self.stats_R)),
-#                   title="recent rewards",
-#                   pref="rr")
-        pass
+        util.plot([self.stats_G],
+                  range(len(self.stats_G)),
+                  title="recent returns",
+                  pref=pref+"_rG")
         
     def live_stats(self):
-        #util.plot([self.stats_R],
-        #          range(len(self.stats_R)), live=True)
+        #util.plot([self.stats_G],
+        #          range(len(self.stats_G)), live=True)
         pass
 
     def get_episodes_history(self):
@@ -112,13 +112,13 @@ class Explorer(Player):
     def get_test_episodes_history(self):
         return self.test_episodes_history
 
-    def decimate_history(self):
+    def decimate_history(self, dec=1):
         self.episodes_history = [self.episodes_history[i] for i in
                                  range(len(self.episodes_history)) 
-                                 if i % 10 > 0]
+                                 if i % 10 >= dec]
         self.test_episodes_history = [self.test_episodes_history[i] for i in 
                                       range(len(self.test_episodes_history)) 
-                                      if i % 10 > 0]
+                                      if i % 10 >= dec]
 
     def store_episode_history(self, fname):
         EH = np.asarray(self.episodes_history)

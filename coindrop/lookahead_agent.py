@@ -4,16 +4,16 @@ Created on Apr 28, 2019
 @author: enerve
 '''
 
-import mechanics
-import util
+from coindrop import mechanics
+from really import util
 
 import logging
 import numpy as np
 import random
 
-from .player import Player
+from really.agent import Agent
 
-class LookaheadAgent(Player):
+class LookaheadAgent(Agent):
     '''
     
     '''
@@ -41,10 +41,10 @@ class LookaheadAgent(Player):
         self.S = initial_state
         self.R = 0
         self.h = initial_heights
-        self.total_R = 0
+        self.G = 0
         self.steps_history = []
         
-    def see_move(self, reward, new_state, new_heights, moves=None):
+    def see_outcome(self, reward, new_state, new_heights, moves=None):
         ''' Observe the effects on this agent of an action taken - possibly by
             another agent.
             reward Reward earned by this agent
@@ -52,7 +52,7 @@ class LookaheadAgent(Player):
         self.S = new_state
         self.h = new_heights
         self.R += reward
-        self.total_R += reward
+        self.G += reward
         if moves: self.moves = moves
          
     def next_move(self):
@@ -112,10 +112,10 @@ class LookaheadAgent(Player):
 
         self.sum_moves += self.moves
 
-    def save_game_for_training(self):
+    def save_episode_for_training(self):
         self.episodes_history.append(self.steps_history)
 
-    def save_game_for_testing(self):
+    def save_episode_for_testing(self):
         self.test_episodes_history.append(self.steps_history)
 
     def collect_stats(self, ep, num_episodes):
@@ -124,7 +124,7 @@ class LookaheadAgent(Player):
             self.recent_R = 0
             self.recent_played = 0
         
-        self.recent_R += self.total_R
+        self.recent_R += self.G
         self.recent_played += 1 
 
     def total_reward(self):
@@ -132,7 +132,7 @@ class LookaheadAgent(Player):
         # increased significance of a win or a loss the sooner it happened
         factor = (42-self.moves)/42
         
-        return factor * self.total_R
+        return factor * self.G
 
     def get_episodes_history(self):
         return self.episodes_history

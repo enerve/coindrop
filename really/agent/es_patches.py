@@ -9,7 +9,7 @@ import random
 
 from .exploration_strategy import ExplorationStrategy
 import logging
-import util
+from really import util
 
 class ESPatches(ExplorationStrategy):
     '''
@@ -60,6 +60,10 @@ class ESPatches(ExplorationStrategy):
             action = self.fa.random_action(S)
         
         return action
+    
+    def collect_stats(self, ep):
+        if (ep+1) % 100 == 0:
+            self.logger.debug("Recent epsilon: %f" % self.recent_epsilon)
 
     def store_exploration_state(self, pref=""):
         util.dump(self.N, "es_patches", pref)
@@ -67,3 +71,4 @@ class ESPatches(ExplorationStrategy):
     def load_exploration_state(self, subdir, pref=""):
         self.logger.debug("Loading exploration state")
         self.N = util.load("es_patches", subdir, pref)
+

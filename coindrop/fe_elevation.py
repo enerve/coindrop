@@ -6,9 +6,9 @@ Created on May 22, 2019
 
 import logging
 import torch
-import util
+from really import util
 
-from function import FeatureEng
+from really.function import FeatureEng
 
 class FEElevation(FeatureEng):
     '''

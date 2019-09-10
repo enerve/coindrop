@@ -8,7 +8,6 @@ import logging
 import numpy as np
 import os
 import time, datetime
-import torch
 import torch.onnx
 
 import matplotlib.pyplot as plt

@@ -5,33 +5,32 @@ Created on Apr 24, 2019
 '''
 
 import logging
-
-from epoch_trainer import EpochTrainer
-from agent import *
-# from function import BoundActionModel
-# from function import NNBoundFA
-from function import *
-import trainer_helper as th
-import cmd_line
-import log
-from tester import Tester
-import util
-
 import numpy as np
 import random
 import torch
-import time
 
-from game import Game
+from really.epoch_trainer import EpochTrainer
+from really.agent import *
+# from function import BoundActionModel
+# from function import NNBoundFA
+from really.function import *
+from really import cmd_line
+from really import log
+from really import util
+
+from coindrop.lookahead_ab_agent import LookaheadABAgent
+import coindrop.trainer_helper as th
+from coindrop.episode_factory import EpisodeFactory
+from coindrop.evaluator import Evaluator
 
 def main():
     args = cmd_line.parse_args()
 
     util.init(args)
-    util.pre_problem = 'Coindrop'
+    util.pre_problem = 'Coindrop2'
 
     logger = logging.getLogger()
-    log.configure_logger(logger, "Coindrop")
+    log.configure_logger(logger, "Coindrop2")
     logger.setLevel(logging.DEBUG)
     
     # -------------- Configure track
@@ -55,10 +54,12 @@ def main():
     fe_elevation = FEElevation(config)
     
     NUM_NEW_EPISODES = 1000
-    NUM_EPOCHS = 2
+    NUM_EPOCHS = 10
     
     logger.debug("NUM_NEW_EPISODES=%d\t NUM_EPOCHS=%d", NUM_NEW_EPISODES, NUM_EPOCHS)
     
+    episode_factory = EpisodeFactory()
+
 #     agent_fa = NN_FA(
 #                     0.0005, # alpha ... #4e-5 old alpha without batching
 #                     0, # regularization constant
@@ -69,7 +70,7 @@ def main():
                     0.002, # alpha ... #4e-5 old alpha without batching
                     0.001, # regularization constant
                     512, # batch_size
-                    200000, # max_iterations
+                    20000, # max_iterations
                     fe_elevation)
 
     training_data_collector = FADataCollector(agent_fa)
@@ -87,11 +88,11 @@ def main():
     
     # ------------------ Training -------------------
 
-    opponent = LookaheadABAgent(config, 5)
+    opponent = LookaheadABAgent(config, 4)
     #opponent = FAExplorer(config, es)
-    test_agent = FAPlayer(config, agent_fa)
+    test_agent = FAAgent(config, agent_fa)
 
-    tester = Tester(test_agent, opponent)
+    evaluator = Evaluator(test_agent, opponent, 10)
 
     if False: # to train/test without exploration and processing
         util.pre_agent_alg = agent_fa.prefix()
@@ -119,21 +120,21 @@ def main():
             agent_fa.load_model(dir, "v3")
             
         #agent_fa.save_model("v3")
-        tester.run_test(10)
+        evaluator.run_test(10)
     
     elif True: # If Run episodes
         
-        trainer = EpochTrainer(explorer, opponent, learner, 
+        trainer = EpochTrainer(episode_factory, [explorer, opponent], learner, 
                                training_data_collector,
                                validation_data_collector,
-                               tester,
+                               evaluator,
                                explorer.prefix() + "_" + learner.prefix() + 
                                "_" + opponent.prefix())
         
-        if False:
+        if True:
             # To start training afresh 
             agent_fa.initialize_default_net()
-        elif True:
+        elif False:
             # To start fresh but using existing episode history / exploration
             dir = "791563_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.002_r0.01_b512_i30000_FFEelv__NNconvnet_lookab5__"
             agent_fa.initialize_default_net()
