@@ -11,8 +11,6 @@ import torch
 
 from really.epoch_trainer import EpochTrainer
 from really.agent import *
-# from function import BoundActionModel
-# from function import NNBoundFA
 from really.function import *
 from really import cmd_line
 from really import log
@@ -23,6 +21,9 @@ import coindrop.trainer_helper as th
 from coindrop.episode_factory import EpisodeFactory
 from coindrop.evaluator import Evaluator
 from coindrop.es_patches import ESPatches
+from coindrop.bound_action_model import BoundActionModel
+from coindrop.fe_elevation import FEElevation
+from coindrop.coindrop_feature_eng import CoindropFeatureEng
 
 def main():
     args = cmd_line.parse_args()
