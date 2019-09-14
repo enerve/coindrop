@@ -22,6 +22,7 @@ from coindrop.lookahead_ab_agent import LookaheadABAgent
 import coindrop.trainer_helper as th
 from coindrop.episode_factory import EpisodeFactory
 from coindrop.evaluator import Evaluator
+from coindrop.es_patches import ESPatches
 
 def main():
     args = cmd_line.parse_args()
