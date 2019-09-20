@@ -20,7 +20,7 @@ class Evaluator(Eval):
         self.opponent = opponent
         self.num_runs = num_runs
     
-    def evaluate(self, ep):
+    def evaluate(self, ep, epoch):
         # Test performance in actual games
         for start_first in [True, False]:
             self.logger.debug("-------- testing as %s player ----------",

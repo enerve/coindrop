@@ -24,6 +24,7 @@ from coindrop.es_patches import ESPatches
 from coindrop.bound_action_model import BoundActionModel
 from coindrop.fe_elevation import FEElevation
 from coindrop.coindrop_feature_eng import CoindropFeatureEng
+from coindrop.s_fa import S_FA
 
 def main():
     args = cmd_line.parse_args()
@@ -54,26 +55,36 @@ def main():
     coindrop_fe = CoindropFeatureEng(config)
     bound_action_model = BoundActionModel(config)
     fe_elevation = FEElevation(config)
-    
-    NUM_NEW_EPISODES = 1000
-    NUM_EPOCHS = 10
+        
+    NUM_NEW_EPISODES = 100
+    NUM_EPOCHS = 2
+    MAX_FA_ITERATIONS = 500
     
     logger.debug("NUM_NEW_EPISODES=%d\t NUM_EPOCHS=%d", NUM_NEW_EPISODES, NUM_EPOCHS)
     
     episode_factory = EpisodeFactory()
 
-#     agent_fa = NN_FA(
-#                     0.0005, # alpha ... #4e-5 old alpha without batching
-#                     0, # regularization constant
+    nn_model = NNModel(
+        'mse',  # TODO: send a complete gradient-generator
+        'adam',
+        0.0005, # alpha
+        0, # regularization constant
+        512, # batch_size
+        MAX_FA_ITERATIONS)
+
+    fe = coindrop_fe
+
+    agent_fa = S_FA(
+        config,
+        nn_model,
+        fe)
+
+#     agent_fa = NN_Bound_FA(
+#                     0.002, # alpha ... #4e-5 old alpha without batching
+#                     0.001, # regularization constant
 #                     512, # batch_size
-#                     500, # max_iterations
-#                     coindrop_fe)
-    agent_fa = NN_Bound_FA(
-                    0.002, # alpha ... #4e-5 old alpha without batching
-                    0.001, # regularization constant
-                    512, # batch_size
-                    20000, # max_iterations
-                    fe_elevation)
+#                     20000, # max_iterations
+#                     fe_elevation)
 
     training_data_collector = FADataCollector(agent_fa)
     validation_data_collector = FADataCollector(agent_fa)
@@ -101,7 +112,7 @@ def main():
 
         if False: # to train new model on dataset
             dir = "791563_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.002_r0.01_b512_i30000_FFEelv__NNconvnet_lookab5__"
-            agent_fa.initialize_default_net()
+            agent_fa.init_default_model()
             training_data_collector.load_dataset(dir, "final_t")
             validation_data_collector.load_dataset(dir, "final_v")
             agent_fa.train(training_data_collector, validation_data_collector)
@@ -114,7 +125,7 @@ def main():
             agent_fa.train(training_data_collector, validation_data_collector)
             agent_fa.report_stats()
         elif True: #If load model params
-            agent_fa.initialize_default_net()
+            agent_fa.init_default_model()
             dir = "569160_Coindrop_DR_neural_bound_a0.002_r0.01_b512_i400_FFEelv__NNconvnet__"
             agent_fa.load_model_params(dir, "v3")
         elif False: #If load model architecture (and classes)
@@ -135,11 +146,11 @@ def main():
         
         if True:
             # To start training afresh 
-            agent_fa.initialize_default_net()
+            agent_fa.init_default_model()
         elif False:
             # To start fresh but using existing episode history / exploration
             dir = "791563_Coindrop_DR_eesp_sarsa_lambda_g0.9_l0.95neural_bound_a0.002_r0.01_b512_i30000_FFEelv__NNconvnet_lookab5__"
-            agent_fa.initialize_default_net()
+            agent_fa.init_default_model()
             explorer.load_episode_history("agent", dir)
             es.load_exploration_state(dir)
             opponent.load_episode_history("opponent", dir)
@@ -184,8 +195,8 @@ def main():
         dir = "986337_Coindrop_DR_sarsa_lambda_eesp_l0.95neural_bound_a0.0005_r0.5_b512_i500_FBAM__NNconvnetlookab5__"
         agent_fa.load_model(dir, "v3")
         
-        agent_fa.export_to_onnx("v3")
-        #agent_fa.viz()
+        nn_model.export_to_onnx("v3")
+        #nn_model.viz()
         
     
 if __name__ == '__main__':
