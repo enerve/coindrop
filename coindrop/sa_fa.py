@@ -7,6 +7,7 @@ Created on 20 Sep 2019
 import collections
 import logging
 import numpy as np
+import random
 import torch
 import torch.nn as nn
 
@@ -15,7 +16,7 @@ from really import util
 from really.function.conv_net import AllSequential, Flatten
 
 
-class S_FA(ValueFunction):
+class SA_FA(ValueFunction):
     '''
     An action-value function approximator for Coindrop problem
     '''
@@ -30,7 +31,7 @@ class S_FA(ValueFunction):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
 
-        self.logger.debug("Racecar S FA")
+        self.logger.debug("Racecar SA FA")
 
         self.num_columns = config.NUM_COLUMNS
         self.num_rows = config.NUM_ROWS
@@ -79,34 +80,37 @@ class S_FA(ValueFunction):
     
         self.model.init_net(net)
 
-    def _value(self, state):
-        X = self.feature_eng.x_adjust(state)
+    def _value(self, state, action):
+        X = self.feature_eng.x_adjust(state, action)
         output = self.model.value(X.unsqueeze(0))[0]
-        return output * 2 - 1
+        return self.value_from_output(output)
     
     def value(self, state, action):
-        ai = self.a_index(action)
-        output = self._value(state)
-        return output[ai].item()
+        output = self._value(state, action)
+        return output[0].item()
 
-    def _actions_mask(self, B):
-        valid_actions_mask = (B[6-1] == 0) * 1
-        return torch.from_numpy(valid_actions_mask).to(self.device).float()
+    def _valid_actions(self, B):
+        return np.where(B[self.num_rows-1] == 0)[0]
+
+    def values(self, state):
+        valid_actions = self._valid_actions(state)
+        x_list = [self.feature_eng.x_adjust(state, a) for a in valid_actions]
+        Xb = torch.stack(x_list).to(self.device)
+        output = self.model.value(Xb)
+        return output, valid_actions
 
     def best_action(self, state):
-        V = self._value(state) - 1000 * (1 - self._actions_mask(state))
+        V, vas = self.values(state)
         i = torch.argmax(V).item()
-        v = V[i].item()
-        return self.action_from_index(i), v, V.tolist()
+        v, ai = V[i].item(), vas[i]
+        return self.action_from_index(ai), v, V.tolist()
 
     def random_action(self, B):
-        V = torch.rand(self.num_columns).to(self.device).float()
-        V += 1000 * self._actions_mask(B)
-        i = torch.argmax(V).item()
-        return i
+        a = random.choice(self._valid_actions(B))
+        return a
 
     def num_outputs(self):
-        return self.num_columns
+        return 1
     
     def a_index(self, action):
         return action
@@ -114,7 +118,13 @@ class S_FA(ValueFunction):
     def action_from_index(self, a_index):
         return a_index
 
-
+    def value_from_output(self, output):
+        return output# * 2 - 1
+    
+    def output_for_target(self, target):
+        #return (target + 1.0) / 2
+        return target
+    
     # ------- Training --------
 
     def update(self, training_data_collector, validation_data_collector):
@@ -136,7 +146,7 @@ class S_FA(ValueFunction):
         #count_conflict = 0
         self.logger.debug("  Preparing for %d items", len(steps_history_state))
 
-        teye = torch.eye(self.num_outputs()).to(self.device)        
+        teye = torch.ones(1).to(self.device)
         for i, (S, a, target) in enumerate(zip(
                         steps_history_state,
                         steps_history_action,
@@ -149,11 +159,10 @@ class S_FA(ValueFunction):
             for flip in [False, True]:
                 if flip:
                     S = np.flip(S, axis=1).copy()
-                    a = 6 - a
-                x = self.feature_eng.x_adjust(S)
-                t = (target + 1.0) / 2
-                ai = self.a_index(a)
-                m = teye[ai].clone()
+                    a = (self.num_columns - 1) - a
+                x = self.feature_eng.x_adjust(S, a)
+                t = self.output_for_target(target)
+                m = teye.clone()
             
                 steps_history_x.append(x)
                 steps_history_t.append(t)

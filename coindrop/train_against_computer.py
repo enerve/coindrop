@@ -16,15 +16,8 @@ from really import cmd_line
 from really import log
 from really import util
 
-from coindrop.lookahead_ab_agent import LookaheadABAgent
+from coindrop import *
 import coindrop.trainer_helper as th
-from coindrop.episode_factory import EpisodeFactory
-from coindrop.evaluator import Evaluator
-from coindrop.es_patches import ESPatches
-from coindrop.bound_action_model import BoundActionModel
-from coindrop.fe_elevation import FEElevation
-from coindrop.coindrop_feature_eng import CoindropFeatureEng
-from coindrop.s_fa import S_FA
 
 def main():
     args = cmd_line.parse_args()
@@ -72,19 +65,23 @@ def main():
         512, # batch_size
         MAX_FA_ITERATIONS)
 
-    fe = coindrop_fe
+    fe = bound_action_model
 
-    agent_fa = S_FA(
+#     agent_fa = S_FA(
+#         config,
+#         nn_model,
+#         fe)
+
+#     agent_fa = NN_Bound_FA(
+#                     0.0005, # alpha ... #4e-5 old alpha without batching
+#                     0, # regularization constant
+#                     512, # batch_size
+#                     MAX_FA_ITERATIONS, # max_iterations
+#                     fe)
+    agent_fa = SA_FA(
         config,
         nn_model,
         fe)
-
-#     agent_fa = NN_Bound_FA(
-#                     0.002, # alpha ... #4e-5 old alpha without batching
-#                     0.001, # regularization constant
-#                     512, # batch_size
-#                     20000, # max_iterations
-#                     fe_elevation)
 
     training_data_collector = FADataCollector(agent_fa)
     validation_data_collector = FADataCollector(agent_fa)
@@ -101,7 +98,7 @@ def main():
     
     # ------------------ Training -------------------
 
-    opponent = LookaheadABAgent(config, 4)
+    opponent = LookaheadABAgent(config, 3)
     #opponent = FAExplorer(config, es)
     test_agent = FAAgent(config, agent_fa)
 
